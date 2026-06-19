@@ -41,18 +41,6 @@ SITE_FILTER_ID = config["variant_calling"]["site_filter_id"]
 
 RES = config.get("resources", {})
 
-
-###############################################################################
-# Wildcard constraints
-###############################################################################
-
-wildcard_constraints:
-    chrom = r"chr[^.]+|mtDNA",
-    chunk = r"\d+",
-    ind_filter_id = r"[^.]+",
-    site_filter_id = r"[^.]+"
-
-
 chrom_length = pd.read_csv(
     REF_FAI,
     sep="\t",
@@ -142,7 +130,7 @@ FINAL_VCF_TARGETS = (
         chrom=CHROMOSOMES,
     )
     + expand(
-        f"{VC_ROOT}/vcf/biallelic_snps.{IND_FILTER_ID}.{SITE_FILTER_ID}.{{chrom}}.vcf.gz.tbi",
+        f"{VC_ROOT}/vcf/variants.{IND_FILTER_ID}.{SITE_FILTER_ID}.biallelic_snps.{{chrom}}.vcf.gz.tbi",
         chrom=CHROMOSOMES,
     )
 )
@@ -493,8 +481,8 @@ rule make_chrom_biallelic_snps:
     input:
         bcf = f"{VC_ROOT}/bcf/final/variants.{{ind_filter_id}}.{{site_filter_id}}.{{chrom}}.bcf"
     output:
-        bcf = f"{VC_ROOT}/bcf/final/biallelic_snps.{{ind_filter_id}}.{{site_filter_id}}.{{chrom}}.bcf",
-        csi = f"{VC_ROOT}/bcf/final/biallelic_snps.{{ind_filter_id}}.{{site_filter_id}}.{{chrom}}.bcf.csi"
+        bcf = f"{VC_ROOT}/bcf/final/variants.{{ind_filter_id}}.{{site_filter_id}}.biallelic_snps.{{chrom}}.bcf",
+        csi = f"{VC_ROOT}/bcf/final/variants.{{ind_filter_id}}.{{site_filter_id}}.biallelic_snps.{{chrom}}.bcf.csi"
     shell:
         r"""
         bcftools view \
@@ -540,10 +528,10 @@ rule export_variants_vcf:
 
 rule export_biallelic_snps_vcf:
     input:
-        bcf = f"{VC_ROOT}/bcf/final/biallelic_snps.{{ind_filter_id}}.{{site_filter_id}}.{{chrom}}.bcf"
+        bcf = f"{VC_ROOT}/bcf/final/variants.{{ind_filter_id}}.{{site_filter_id}}.biallelic_snps.{{chrom}}.bcf"
     output:
-        vcf = f"{VC_ROOT}/vcf/biallelic_snps.{{ind_filter_id}}.{{site_filter_id}}.{{chrom}}.vcf.gz",
-        tbi = f"{VC_ROOT}/vcf/biallelic_snps.{{ind_filter_id}}.{{site_filter_id}}.{{chrom}}.vcf.gz.tbi"
+        vcf = f"{VC_ROOT}/vcf/variants.{{ind_filter_id}}.{{site_filter_id}}.biallelic_snps.{{chrom}}.vcf.gz",
+        tbi = f"{VC_ROOT}/vcf/variants.{{ind_filter_id}}.{{site_filter_id}}.biallelic_snps.{{chrom}}.vcf.gz.tbi"
     shell:
         r"""
         bcftools view -Oz -o {output.vcf} {input.bcf}

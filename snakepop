@@ -23,7 +23,8 @@ Targets:
   final_callset
   variants
   clean_intermediates
-  popstats
+  clean_snakemake
+  popstats (not yet implemeted)
   all
 
 Options:
