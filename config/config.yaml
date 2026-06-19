@@ -1,0 +1,127 @@
+ref:
+  name: GCA_965276375.1_fPomMin1.1
+  original_fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.fna.gz
+  assembly_report: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.sequence_report.tsv
+  fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic_chromnames.fna
+  species: Pomatoschistus minutus
+  chrom_prefix: chr
+  mt_name: mtDNA
+
+sample_table: config/Metadata_Norwegian_gobies_180526.tsv
+sample_id_column: id
+read_files_column: read_files
+
+callset:
+  id: GCA_965276375.1_fPomMin1.1_19062026
+
+variant_calling:
+  chunk_size: 5000000
+  max_depth: 3000
+  ind_filter_id: tif1
+  site_filter_id: sft1
+  keep_intermediates: false
+
+resources:
+  rename_reference:
+    threads: 1
+    mem_mb: 4000
+    walltime: 1
+
+  bwa_index:
+    threads: 8
+    mem_mb: 8000
+    walltime: 4
+
+  align_reads:
+    threads: 8
+    mem_mb: 18000
+    walltime: 48
+
+  flagstat:
+    threads: 1
+    mem_mb: 4000
+    walltime: 1
+
+  call_all_sites_bcf:
+    threads: 2
+    mem_mb: 18000
+    walltime: 24
+
+  genotype_filter_all_sites:
+    threads: 1
+    mem_mb: 36000
+    walltime: 12
+
+  add_site_filters:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+
+  make_chrom_all_sites:
+    threads: 1
+    mem_mb: 12000
+    walltime: 8
+
+  make_chrom_variants:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+
+  make_chrom_biallelic_snps:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+
+individual_filter_sets:
+  tif1:
+    ab_test_thresh: 0.01
+    min_GQ: 10
+    max_dp_to_missing_pval: 1.0e-2
+    min_dp_to_missing_pval: 0
+
+site_filter_sets:
+  sft1:
+    merge_dist: 10
+    filters:
+      LowMQ:
+        tag: MQ
+        threshold: 50
+        threshold_type: absolute
+        operator: "<"
+
+      ExcessMQ0:
+        tag: MQ0F
+        threshold: 0.1
+        threshold_type: absolute
+        operator: ">"
+
+      StrandBias:
+        tag: MQSBZ
+        threshold: 1.0e-3
+        threshold_type: absolute
+        operator: "<"
+        description: Highly significant Mann-Whitney U test of Mapping Quality vs Strand Bias.
+
+      ExcessHet:
+        tag: ExcHetOrig
+        threshold: 0.2
+        threshold_type: absolute
+        operator: "<"
+
+      AlleleBalance:
+        tag: AB_Het
+        threshold: 20
+        threshold_type: absolute
+        operator: ">"
+
+      DepthDeviation:
+        tag: DD
+        threshold: 2
+        threshold_type: absolute
+        operator: ">"
+
+      ExcessMissing:
+        tag: MF
+        threshold: 0.2
+        threshold_type: absolute
+        operator: ">"

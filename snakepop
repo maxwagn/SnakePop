@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CONFIG="config/config.yaml"
+CORES=""
+PROFILE=""
+DRYRUN=()
+SNAKEMAKE_ARGS=()
+TARGET=""
+
+usage() {
+cat << EOF
+SnakePop
+
+Usage:
+  ./snakepop <target> --cores N [options]
+
+Targets:
+  alignment
+  raw_calling
+  filtering
+  final_callset
+  variants
+  clean_intermediates
+  popstats
+  all
+
+Options:
+  --cores N              Maximum local cores for Snakemake
+  --config FILE          Config file [default: config/config.yaml]
+  --profile PROFILE      Snakemake profile
+  --dry-run, -n          Dry run with printed commands
+  --snakemake "ARGS"     Extra arguments passed directly to Snakemake
+  --help, -h             Show this help
+
+Examples:
+  ./snakepop alignment --cores 8 --dry-run
+  ./snakepop raw_calling --cores 32 --dry-run
+  ./snakepop filtering --cores 32 --dry-run
+  ./snakepop final_callset --cores 32 --dry-run
+  ./snakepop clean_intermediates --cores 1
+  ./snakepop variants --cores 32 --snakemake "--rerun-incomplete --keep-going"
+  ./snakepop alignment --cores 8 --snakemake "--unlock"
+EOF
+}
+
+if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+fi
+
+case "$1" in
+    alignment|raw_calling|filtering|final_callset|variants|clean_intermediates|popstats|all)
+        TARGET="$1"
+        shift
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        echo "ERROR: Unknown target '$1'"
+        usage
+        exit 1
+        ;;
+esac
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --cores)
+            CORES="$2"
+            shift 2
+            ;;
+
+        --config)
+            CONFIG="$2"
+            shift 2
+            ;;
+
+        --profile)
+            PROFILE="$2"
+            shift 2
+            ;;
+
+        -n|--dry-run)
+            DRYRUN=(-n -p)
+            shift
+            ;;
+
+        --snakemake)
+            read -r -a EXTRA <<< "$2"
+            SNAKEMAKE_ARGS+=("${EXTRA[@]}")
+            shift 2
+            ;;
+
+        -h|--help)
+            usage
+            exit 0
+            ;;
+
+        *)
+            echo "ERROR: Unknown option '$1'"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z "$CORES" ]]; then
+    echo "ERROR: --cores is required"
+    usage
+    exit 1
+fi
+
+CMD=(
+    snakemake
+    --snakefile workflow/Snakefile
+    --configfile "$CONFIG"
+    --cores "$CORES"
+)
+
+if [[ -n "$PROFILE" ]]; then
+    CMD+=(--profile "$PROFILE")
+fi
+
+CMD+=("${DRYRUN[@]}")
+CMD+=("${SNAKEMAKE_ARGS[@]}")
+CMD+=("$TARGET")
+
+echo
+echo "Running:"
+printf '%q ' "${CMD[@]}"
+echo
+echo
+
+"${CMD[@]}"

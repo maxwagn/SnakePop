@@ -1,0 +1,13 @@
+###############################################################################
+# SnakePop main workflow
+###############################################################################
+
+configfile: "../config/config.yaml"
+
+include: "rules/alignment.smk"
+include: "rules/variants.smk"
+
+rule all:
+    input:
+        rules.alignment.input,
+        rules.final_callset.input
