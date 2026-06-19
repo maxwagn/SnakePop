@@ -1,0 +1,42 @@
+# Snakemake
+.snakemake/
+
+# Pipeline outputs
+results/
+reports/
+
+# Logs
+logs/
+
+# Conda / Mamba
+.env/
+.conda/
+conda/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editors
+.vscode/
+.idea/
+
+# Mac/Linux
+.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+
+# Large variant files
+*.bam
+*.bam.bai
+*.bcf
+*.bcf.csi
+*.vcf.gz
+*.vcf.gz.tbi
+
+# Cluster files
+slurm-*.out
+slurm-*.err
