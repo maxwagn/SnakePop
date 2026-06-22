@@ -4,7 +4,7 @@ A modular **Snakemake workflow for population genomics** from whole-genome reseq
 
 ```text
                    /^\/^\
-                   _|__|  O|
+                  / _|__| 0|
           \/     /~     \_/ \
            \____|__________/  \
                   \_______     \
@@ -17,9 +17,9 @@ A modular **Snakemake workflow for population genomics** from whole-genome reseq
                      |    |
                      |    |
                       \    \
-                       \    \______________   /
-                        \                   _/
-                         \_______________--'
+                       \    \__ __ __ __ __ __ __   /
+                        \                         _/
+                         \__ __ __ __ __ __ __ _--'
 
                            ~~~ SSSSSSSSS ~~~
 ```
