@@ -372,7 +372,7 @@ reports/
 
 ## Authors
 
-**Maximilian Wagner** and ****
+**Maximilian Wagner**, **Alex Hooft van Huysduynen** and **Hannes Svardal**
 
 University of Rijeka, 
 Evolutionary Genomics Group  
