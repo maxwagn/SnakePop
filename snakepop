@@ -10,8 +10,26 @@ SNAKEMAKE_ARGS=()
 TARGET=""
 
 usage() {
-cat << EOF
-SnakePop
+cat << 'EOF'
+                    /^\/^\
+                   _|__|  O|
+          \/     /~     \_/ \
+           \____|__________/  \
+                  \_______     \
+                          `\    \
+                            |    |
+                           /    /
+                          /    /
+                        /    /
+                      /    /      SnakePop v1
+                     |    |
+                     |    |
+                      \    \
+                       \    \______________   /
+                        \                   _/
+                         \_______________--'
+
+                           ~~~ SSSSSSSSS ~~~
 
 Usage:
   ./snakepop <target> --cores N [options]
@@ -52,7 +70,7 @@ if [[ $# -eq 0 ]]; then
 fi
 
 case "$1" in
-    alignment|raw_calling|filtering|final_callset|variants|clean_intermediates|popstats|all)
+    alignment|raw_calling|filtering|final_callset|variants|pca|clean_intermediates|clean_snakemake|popstats|all)
         TARGET="$1"
         shift
         ;;

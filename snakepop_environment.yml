@@ -17,4 +17,5 @@ dependencies:
   - scipy
   - matplotlib
   - pyyaml
-
+  - plink2
+  - vcftools

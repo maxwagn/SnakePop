@@ -40,3 +40,6 @@ __pycache__/
 # Cluster files
 slurm-*.out
 slurm-*.err
+
+
+pca_morph1_morph2_no_PNor6.sh

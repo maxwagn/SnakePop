@@ -71,6 +71,10 @@ resources:
     threads: 1
     mem_mb: 8000
     walltime: 4
+  pca:
+    threads: 8
+    mem_mb: 32000
+    walltime: 8
 
 individual_filter_sets:
   tif1:
@@ -125,3 +129,18 @@ site_filter_sets:
         threshold: 0.2
         threshold_type: absolute
         operator: ">"
+
+popstats:
+  pca:
+    n_pcs: 10
+    maf: 0.05
+    mind: 0.2
+    geno: 0.2
+    color_by: morphology
+    label_samples: true
+    ld_prune: false
+    plink_chr_set: 23 no-xy no-mt
+    indep_pairwise:
+      window_kb: 50
+      step: 5
+      r2: 0.2

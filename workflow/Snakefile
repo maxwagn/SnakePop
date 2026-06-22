@@ -6,8 +6,10 @@ configfile: "../config/config.yaml"
 
 include: "rules/alignment.smk"
 include: "rules/variants.smk"
+include: "rules/popstats.smk"
 
 rule all:
     input:
         rules.alignment.input,
-        rules.final_callset.input
+        rules.final_callset.input,
+        rules.pca.input
