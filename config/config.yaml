@@ -75,6 +75,14 @@ resources:
     threads: 8
     mem_mb: 32000
     walltime: 8
+  popgenwindows:
+    threads: 8
+    mem_mb: 16000
+    walltime: 2
+  parse_vcf:
+    threads: 1
+    mem_mb: 4000
+    walltime: 2
 
 individual_filter_sets:
   tif1:
@@ -144,3 +152,11 @@ popstats:
       window_kb: 50
       step: 5
       r2: 0.2
+  population_column: morphology
+
+  popgenwindows:
+    enabled: true
+    window_size: 60000
+    window_step: 30000
+    window_min_sites: 100
+    input_format: phased

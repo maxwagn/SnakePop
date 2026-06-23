@@ -12,4 +12,4 @@ rule all:
     input:
         rules.alignment.input,
         rules.final_callset.input,
-        rules.pca.input
+        rules.popstats.input

@@ -19,3 +19,4 @@ dependencies:
   - pyyaml
   - plink2
   - vcftools
+  - pixy
