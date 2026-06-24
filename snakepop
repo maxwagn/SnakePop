@@ -72,7 +72,7 @@ if [[ $# -eq 0 ]]; then
 fi
 
 case "$1" in
-    alignment|raw_calling|filtering|final_callset|variants|pca|popgenwindows|clean_intermediates|clean_snakemake|popstats|all)
+    alignment|raw_calling|filtering|final_callset|variants|pca|popgenwindows|winpca|clean_intermediates|clean_snakemake|popstats|all)
         TARGET="$1"
         shift
         ;;

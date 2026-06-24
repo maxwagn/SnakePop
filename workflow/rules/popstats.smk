@@ -529,11 +529,307 @@ rule merge_popgenwindows:
         )
 
 
+rule summarize_popgenwindows:
+    input:
+        merged = PGW_MERGED_TARGET
+    output:
+        summary = PGW_MERGED_TARGET.replace(".csv.gz", ".summary.tsv")
+    run:
+        import pandas as pd
+
+        df = pd.read_csv(input.merged, sep="\t")
+
+        skip_cols = {
+            "scaffold",
+            "start",
+            "end",
+            "mid",
+            "sites",
+        }
+
+        stat_cols = [c for c in df.columns if c not in skip_cols]
+
+        rows = []
+
+        for col in stat_cols:
+            x = pd.to_numeric(df[col], errors="coerce").dropna()
+
+            if len(x) == 0:
+                continue
+
+            rows.append({
+                "statistic": col,
+                "n_windows": len(x),
+                "mean": x.mean(),
+                "median": x.median(),
+                "sd": x.std(),
+                "min": x.min(),
+                "p05": x.quantile(0.05),
+                "p95": x.quantile(0.95),
+                "max": x.max(),
+            })
+
+        summary = pd.DataFrame(rows)
+
+        summary.sort_values(
+            "statistic",
+            inplace=True,
+        )
+
+        summary.to_csv(
+            output.summary,
+            sep="\t",
+            index=False,
+        )
+
 rule popgenwindows:
     input:
-        PGW_MERGED_TARGET
+        merged = PGW_MERGED_TARGET,
+        summary = PGW_MERGED_TARGET.replace(".csv.gz", ".summary.tsv")
+
 
 rule popstats:
     input:
         rules.pca.input,
         rules.popgenwindows.input
+
+
+###############################################################################
+# WinPCA
+###############################################################################
+
+WINPCA_CFG = config["popstats"].get("winpca", {})
+
+WINPCA_ROOT = f"{POP_ROOT}/winpca"
+WINPCA_REPORT_ROOT = f"reports/popstats/{CALLSET_ID}_{REF_NAME}/winpca"
+
+WINPCA_BIN = WINPCA_CFG.get("executable", "bin/winpca/winpca")
+WINPCA_WINDOW_SIZE = WINPCA_CFG.get("window_size", 1000000)
+WINPCA_INCREMENT = WINPCA_CFG.get("increment", 50000)
+WINPCA_MIN_MAF = WINPCA_CFG.get("min_maf", 0.01)
+WINPCA_COLOR_BY = WINPCA_CFG.get(
+    "color_by",
+    config["popstats"].get("population_column", "morphology"),
+)
+WINPCA_PLOT_VAR = WINPCA_CFG.get("plot_var", 1)
+WINPCA_PLOT_INTERVAL = WINPCA_CFG.get("plot_interval", 5)
+WINPCA_PLOT_FORMAT = WINPCA_CFG.get("plot_format", "HTML,SVG")
+
+WINPCA_FILTER = WINPCA_CFG.get("sample_filter", {})
+WINPCA_FILTER_COLUMN = WINPCA_FILTER.get("column", None)
+WINPCA_FILTER_VALUES = WINPCA_FILTER.get("values", [])
+
+WINPCA_RES = RES.get("winpca", {})
+
+WINPCA_SAMPLE_LIST = f"{POP_ROOT}/populations/winpca.samples.txt"
+
+
+def chrom_region(wildcards):
+    fai = config["ref"]["fasta"] + ".fai"
+
+    with open(fai) as f:
+        for line in f:
+            chrom, length = line.split("\t")[:2]
+            if chrom == wildcards.chrom:
+                return f"{chrom}:1-{length}"
+
+    raise ValueError(f"Chromosome not found in FASTA index: {wildcards.chrom}")
+
+
+rule make_winpca_sample_list:
+    input:
+        metadata = SAMPLE_TABLE
+    output:
+        samples = WINPCA_SAMPLE_LIST
+    run:
+        import os
+        import pandas as pd
+
+        df = pd.read_csv(input.metadata, sep="\t", dtype=str)
+
+        if SAMPLE_COL not in df.columns:
+            raise ValueError(f"Missing sample column in metadata: {SAMPLE_COL}")
+
+        if WINPCA_FILTER_COLUMN is not None:
+            if WINPCA_FILTER_COLUMN not in df.columns:
+                raise ValueError(
+                    f"Missing WinPCA filter column in metadata: {WINPCA_FILTER_COLUMN}"
+                )
+
+            if not WINPCA_FILTER_VALUES:
+                raise ValueError(
+                    "WinPCA sample_filter.values is empty, but sample_filter.column is set."
+                )
+
+            df = df[df[WINPCA_FILTER_COLUMN].isin(WINPCA_FILTER_VALUES)]
+
+        samples = df[SAMPLE_COL].dropna().drop_duplicates()
+
+        if len(samples) < 3:
+            raise ValueError(
+                f"WinPCA sample list has only {len(samples)} samples. "
+                "Check sample_filter settings."
+            )
+
+        os.makedirs(os.path.dirname(output.samples), exist_ok=True)
+
+        samples.to_csv(
+            output.samples,
+            index=False,
+            header=False,
+        )
+
+
+rule run_winpca_chrom:
+    input:
+        vcf = f"{VC_ROOT}/vcf/biallelic_snps.{IND_FILTER_ID}.{SITE_FILTER_ID}.{{chrom}}.vcf.gz",
+        tbi = f"{VC_ROOT}/vcf/biallelic_snps.{IND_FILTER_ID}.{SITE_FILTER_ID}.{{chrom}}.vcf.gz.tbi",
+        samples = WINPCA_SAMPLE_LIST
+    output:
+        done = f"{WINPCA_ROOT}/{{chrom}}/{{chrom}}.winpca.done"
+    threads: WINPCA_RES.get("threads", 4)
+    resources:
+        mem_mb = WINPCA_RES.get("mem_mb", 16000),
+        walltime = WINPCA_RES.get("walltime", 4)
+    params:
+        prefix = lambda wc: f"{WINPCA_ROOT}/{wc.chrom}/{wc.chrom}",
+        region = chrom_region,
+        window_size = WINPCA_WINDOW_SIZE,
+        increment = WINPCA_INCREMENT,
+        min_maf = WINPCA_MIN_MAF
+    shell:
+        r"""
+        mkdir -p {WINPCA_ROOT}/{wildcards.chrom}
+
+        {WINPCA_BIN} pca \
+          {params.prefix} \
+          {input.vcf} \
+          {params.region} \
+          --threads {threads} \
+          --samples {input.samples} \
+          --window_size {params.window_size} \
+          --increment {params.increment} \
+          --min_maf {params.min_maf}
+
+        touch {output.done}
+        """
+
+
+rule plot_winpca_chrom:
+    input:
+        done = f"{WINPCA_ROOT}/{{chrom}}/{{chrom}}.winpca.done",
+        metadata = SAMPLE_TABLE
+    output:
+        done = f"{WINPCA_REPORT_ROOT}/{{chrom}}/{{chrom}}.chromplot.done"
+    threads: WINPCA_RES.get("threads", 4)
+    resources:
+        mem_mb = WINPCA_RES.get("mem_mb", 16000),
+        walltime = WINPCA_RES.get("walltime", 4)
+    params:
+        prefix = lambda wc: f"{WINPCA_ROOT}/{wc.chrom}/{wc.chrom}",
+        region = chrom_region,
+        color_by = WINPCA_COLOR_BY,
+        plot_var = WINPCA_PLOT_VAR,
+        interval = WINPCA_PLOT_INTERVAL,
+        fmt = WINPCA_PLOT_FORMAT
+    shell:
+        r"""
+        mkdir -p {WINPCA_REPORT_ROOT}/{wildcards.chrom}
+
+        {WINPCA_BIN} chromplot \
+          {params.prefix} \
+          {params.region} \
+          --threads {threads} \
+          --metadata {input.metadata} \
+          --groups {params.color_by} \
+          --plot_var {params.plot_var} \
+          --interval {params.interval} \
+          --format {params.fmt}
+
+        touch {output.done}
+        """
+
+rule merge_winpca_html:
+    input:
+        htmls = expand(
+            f"{WINPCA_ROOT}/{{chrom}}/{{chrom}}.pc_1.html",
+            chrom=CHROMOSOMES
+        )
+    output:
+        html = f"{WINPCA_ROOT}/winpca_merged.html"
+    run:
+        import os
+        import html as html_lib
+
+        os.makedirs(WINPCA_ROOT, exist_ok=True)
+
+        sections = []
+
+        for html_file in input.htmls:
+            chrom = os.path.basename(os.path.dirname(html_file))
+
+            with open(html_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            escaped = html_lib.escape(content, quote=True)
+
+            sections.append(f"""
+<section class="chrom-section">
+  <h2>{chrom}</h2>
+  <iframe
+    srcdoc="{escaped}"
+    width="100%"
+    height="720"
+    loading="lazy"
+    style="border:1px solid #ccc; background:white;"
+  ></iframe>
+</section>
+""")
+
+        page = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SnakePop WinPCA merged report</title>
+  <style>
+    body {{
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background: #fafafa;
+    }}
+    h1 {{
+      margin-bottom: 10px;
+    }}
+    h2 {{
+      margin-top: 40px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #ccc;
+    }}
+    .chrom-section {{
+      background: white;
+      padding: 20px;
+      margin-bottom: 40px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }}
+    iframe {{
+      display: block;
+    }}
+  </style>
+</head>
+<body>
+  <h1>SnakePop WinPCA merged report</h1>
+  <p>Windowed PCA plots for all chromosomes.</p>
+
+  {''.join(sections)}
+
+</body>
+</html>
+"""
+
+        with open(output.html, "w", encoding="utf-8") as out:
+            out.write(page)
+
+rule winpca:
+    input:
+        f"{WINPCA_ROOT}/winpca_merged.html"

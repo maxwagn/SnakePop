@@ -2,9 +2,14 @@ name: snakepop
 channels:
   - conda-forge
   - bioconda
+
 dependencies:
   - python=3.11
+
+  # workflow
   - snakemake
+
+  # alignment / variant calling
   - bwa
   - samtools
   - bcftools
@@ -12,11 +17,21 @@ dependencies:
   - pysam
   - bedtools
   - tabix
-  - numpy
+
+  # core python
+  - numpy<2
   - pandas
   - scipy
   - matplotlib
   - pyyaml
+
+  # PCA / plotting
   - plink2
+  - plotly
+  - python-kaleido
+
+  # population genomics
   - vcftools
-  - pixy
+  - scikit-allel
+  - dask
+

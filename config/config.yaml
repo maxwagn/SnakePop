@@ -83,6 +83,10 @@ resources:
     threads: 1
     mem_mb: 4000
     walltime: 2
+  winpca:
+    threads: 4
+    mem_mb: 16000
+    walltime: 4
 
 individual_filter_sets:
   tif1:
@@ -160,3 +164,19 @@ popstats:
     window_step: 30000
     window_min_sites: 100
     input_format: phased
+
+  winpca:
+    enabled: true
+    executable: bin/winpca/winpca
+    window_size: 1000000
+    increment: 50000
+    min_maf: 0.01
+    color_by: morphology
+    plot_var: 1
+    plot_interval: 5
+    plot_format: HTML #,SVG # SVG requires CHROME
+    sample_filter:
+      column: morphology
+      values:
+        - morph_1
+        - morph_2
