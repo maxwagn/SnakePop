@@ -1,0 +1,22 @@
+name: snakepop
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - snakemake
+  - bwa
+  - samtools
+  - bcftools
+  - htslib
+  - pysam
+  - bedtools
+  - tabix
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - pyyaml
+  - plink2
+  - vcftools
+  - pixy
