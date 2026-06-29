@@ -26,6 +26,7 @@ dependencies:
   - pyyaml
 
   # PCA / plotting
+  - plink
   - plink2
   - plotly
   - python-kaleido
@@ -34,4 +35,10 @@ dependencies:
   - vcftools
   - scikit-allel
   - dask
-
+  
+  # tree
+  - iqtree
+  - ete3
+  - astral-tree
+  - seqkit
+  - biopython

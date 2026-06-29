@@ -44,6 +44,7 @@ slurm-*.err
 
 pca_morph1_morph2_no_PNor6.sh
 
+bin/vcf2phylip/
 
 bin/__pycache__
 bin/winpca

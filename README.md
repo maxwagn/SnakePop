@@ -1,384 +1,309 @@
 # SnakePop 🐍
 
-A modular **Snakemake workflow for population genomics** from whole-genome resequencing data.
-
-```text
-                   /^\/^\
-                  / _|__| 0|
-          \/     /~     \_/ \
-           \____|__________/  \
-                  \_______     \
-                          `\    \
-                            |    |
-                           /    /
-                          /    /
-                        /    /
-                      /    /      SnakePop
-                     |    |
-                     |    |
-                      \    \
-                       \    \__ __ __ __ __ __ __   /
-                        \                         _/
-                         \__ __ __ __ __ __ __ _--'
-
-                           ~~~ SSSSSSSSS ~~~
-```
-
----
+A modular **Snakemake workflow for population genomics** from
+whole-genome resequencing data.
 
 ## Overview
 
-SnakePop is a modular Snakemake workflow designed for population genomic analyses from whole-genome resequencing data.
-
-The workflow currently supports:
-
-- Reference genome preparation
-- Read alignment
-- BAM processing
-- Variant calling
-- Genotype filtering
-- Site filtering
-- Final VCF generation
-- Principal Component Analysis (PCA)
-
-Planned future modules include:
-
-- FST
-- π (nucleotide diversity)
-- Dxy
-- Sliding-window genome scans
-- ADMIXTURE
-- Population assignment
-- Phylogenomics
-- Demographic inference
-
----
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone git@github.com:maxwagn/SnakePop.git
-cd SnakePop
-```
-
-Create the environment:
-
-```bash
-mamba env create -f snakepop_environment.yml
-conda activate snakepop
-```
-
----
-
-## Input Data
-
-### Reference Genome
-
-Configured in:
-
-```yaml
-ref:
-  original_fasta:
-  assembly_report:
-```
-
-### Sample Metadata
-
-The sample metadata file is specified in:
-
-```yaml
-sample_table: config/Metadata.tsv
-```
-
-At minimum, the metadata table must contain the following columns:
-
-| Column | Required | Description |
-|----------|----------|------------|
-| id | Yes | Unique sample identifier |
-| read_files | Yes | Semicolon-separated paths to paired-end FASTQ files |
-
-Example:
-
-```text
-id      species         morphology      read_files
-PM1     P. minutus      morph_1         /path/PM1_R1.fastq.gz;/path/PM1_R2.fastq.gz
-PM2     P. minutus      morph_2         /path/PM2_R1.fastq.gz;/path/PM2_R2.fastq.gz
-```
-
-The `read_files` column must contain exactly two FASTQ files separated by a semicolon:
-
-```text
-/path/sample_R1.fastq.gz;/path/sample_R2.fastq.gz
-```
-
-The sample identifier in the `id` column is used throughout the workflow and becomes the sample name in BAM, BCF, VCF, and downstream population genomic analyses.
-
-Additional metadata columns are optional but recommended. These can later be used for:
-
-- PCA colouring (e.g. `morphology`, `species`, `country`)
-- Population assignment
-- Sample filtering
-- Future population genomic analyses
-
-For example:
-
-```text
-id  species         morphology  country  location
-PM1 P. minutus      morph_1     Norway   Frafjord
-PM2 P. minutus      morph_2     Norway   Hoegsfjord
-```
-
----
-
-## Configuration
-
-Main configuration file:
-
-```text
-config/config.yaml
-```
-
-Important sections:
-
-```yaml
-ref:
-sample_table:
-resources:
-callset:
-variant_calling:
-individual_filter_sets:
-site_filter_sets:
-popstats:
-```
-
----
-
-## Workflow Overview
-
-```text
-FASTQ
-  |
-  v
-Alignment
-  |
-  v
-Processed BAMs
-  |
-  v
-Raw Variant Calling
-  |
-  v
-Genotype Filtering
-  |
-  v
-Site Filtering
-  |
-  v
-Final Callsets
-  |
-  +--> PCA
-  +--> Future population genomic analyses
-```
-
----
-
-## Usage
-
-Display help:
-
-```bash
-./snakepop --help
-```
-
-### Alignment
-
-```bash
-./snakepop alignment --cores 32
-```
-
-Output:
-
-```text
-results/alignment/
-```
-
----
-
-### Raw Variant Calling
-
-```bash
-./snakepop raw_calling --cores 32
-```
-
-Output:
-
-```text
-results/variants/<callset>/bcf/raw/
-```
-
----
-
-### Filtering
-
-```bash
-./snakepop filtering --cores 32
-```
-
-Output:
-
-```text
-results/variants/<callset>/bcf/final/
-reports/filtering_stats/
-```
-
----
-
-### Final Callset Generation
-
-```bash
-./snakepop final_callset --cores 32
-```
-
-Output:
-
-```text
-results/variants/<callset>/vcf/
-```
-
-Generated datasets include:
-
-```text
-all_sites
-variants
-biallelic_snps
-```
-
----
-
-### Complete Variant Pipeline
-
-```bash
-./snakepop variants --cores 32
-```
-
-Runs:
-
-```text
-raw_calling
-→ filtering
-→ final_callset
-```
-
----
-
-### PCA
-
-```bash
-./snakepop pca --cores 16
-```
-
-Output:
-
-```text
-results/popstats/<callset>/pca/
-reports/popstats/<callset>/pca/
-```
-
-Generated files:
-
-```text
-plink_pca.eigenvec
-plink_pca.eigenval
-pca_scores.tsv
-pca_PC1_PC2.png
-pca_PC1_PC2.svg
-```
-
-Example PCA configuration:
-
-```yaml
-popstats:
-  pca:
-    n_pcs: 10
-    maf: 0.05
-    geno: 0.2
-    mind: 0.2
-    color_by: morphology
-    label_samples: true
-    ld_prune: false
-```
-
----
-
-## Cleanup
-
-Remove intermediate variant-calling files:
-
-```bash
-./snakepop clean_intermediates --cores 1
-```
-
-Remove Snakemake metadata:
-
-```bash
-./snakepop clean_snakemake --cores 1
-```
-
----
-
-## Output Structure
-
-```text
-results/
-├── alignment/
-├── variants/
-│   ├── bcf/
-│   └── vcf/
-└── popstats/
-
-reports/
-├── filtering_stats/
-└── popstats/
-```
-
----
-
-## Current Status
-
-### Implemented
-
-- Reference preparation
-- Read alignment
-- BAM processing
-- Variant calling
-- Variant filtering
-- Final VCF generation
-- PCA
+SnakePop is a modular Snakemake workflow designed for chromosome-level
+and scaffold-level whole-genome resequencing projects. It provides an
+end-to-end workflow from raw FASTQ files to filtered VCFs and a growing
+suite of downstream population genomic and phylogenomic analyses.
+
+## Implemented modules
+
+### Core workflow
+
+-   Reference preparation
+-   Read alignment (BWA)
+-   BAM processing
+-   Variant calling (bcftools)
+-   Individual and site filtering
+-   Final VCF generation
+
+### Population genomics
+
+-   PCA (PLINK)
+-   Genome-wide heterozygosity and inbreeding coefficient (vcftools)
+-   Runs of Homozygosity (PLINK)
+-   PopGenWindows
+    -   FST
+    -   dXY
+    -   dA
+    -   π
+-   Manhattan plots
+-   Candidate region detection
+-   WinPCA
+-   HTML summary reports
+
+### Phylogenomics
+
+-   Window-based SNP trees (IQ-TREE)
+-   ASTRAL species tree inference
+-   Rooted topology-only tree for downstream analyses
 
 ### Planned
 
-- FST
-- π
-- Dxy
-- Sliding-window scans
-- ADMIXTURE
-- Population assignment
-- Phylogenomics
-- Demographic inference
+-   Dsuite
+-   ADMIXTURE
+-   LD decay
+-   IBS/IBD
+-   Tajima's D
+-   PBS
+-   Selection scans
+-   Demographic inference
 
----
+------------------------------------------------------------------------
 
-## Authors
+# Installation
 
-**Maximilian Wagner**, **Alex Hooft van Huysduynen** and **Hannes Svardal**
+``` bash
+git clone git@github.com:maxwagn/SnakePop.git
+cd SnakePop
 
-University of Rijeka, 
-Evolutionary Genomics Group  
+mamba env create -f snakepop_environment.yml
+conda activate snakepop
+chmod +x snakepop
+```
+
+Update an existing environment:
+
+``` bash
+mamba env update -n snakepop -f snakepop_environment.yml
+```
+
+------------------------------------------------------------------------
+
+# General workflow
+
+    FASTQ
+      │
+      ▼
+    Alignment
+      │
+      ▼
+    Variant calling
+      │
+      ▼
+    Filtering
+      │
+      ▼
+    Final VCF
+      │
+      ├── PCA
+      ├── Heterozygosity
+      ├── ROH
+      ├── PopGenWindows
+      ├── Manhattan plots
+      ├── WinPCA
+      ├── SNP Trees
+      └── ASTRAL
+
+------------------------------------------------------------------------
+
+# Wrapper targets
+
+## Core workflow
+
+    alignment
+    raw_calling
+    filtering
+    final_callset
+    variants
+    all
+
+## Population genomics
+
+    pca
+    heterozygosity
+    roh
+    popgenwindows
+    manhattan
+    winpca
+    popstats
+
+## Phylogenomics
+
+    snptrees_iqtree
+    astral
+    dsuite (planned)
+
+## Utilities
+
+    clean_intermediates
+    clean_snakemake
+
+------------------------------------------------------------------------
+
+# Example commands
+
+``` bash
+./snakepop alignment --cores 16
+
+./snakepop variants --cores 32
+
+./snakepop pca --cores 16
+
+./snakepop heterozygosity --cores 4
+
+./snakepop roh --cores 4
+
+./snakepop popgenwindows --cores 16
+
+./snakepop manhattan --cores 8
+
+./snakepop winpca --cores 16
+
+./snakepop snptrees_iqtree --cores 8
+
+./snakepop astral --cores 1
+```
+
+------------------------------------------------------------------------
+
+# Population genomics
+
+## PCA
+
+Principal component analysis using PLINK.
+
+Outputs
+
+    results/popstats/<callset>/pca/
+
+------------------------------------------------------------------------
+
+## Genome-wide heterozygosity
+
+Calculated using `vcftools --het`.
+
+Outputs
+
+    heterozygosity.per_sample.tsv
+    heterozygosity.per_sample.pdf
+    heterozygosity.report.html
+
+------------------------------------------------------------------------
+
+## Runs of Homozygosity
+
+Calculated with PLINK.
+
+Outputs
+
+    plink_roh.hom
+    plink_roh.hom.indiv
+    roh.per_sample.tsv
+    roh.per_sample.pdf
+    roh.report.html
+
+------------------------------------------------------------------------
+
+## PopGenWindows
+
+Calculates
+
+-   FST
+-   dXY
+-   dA
+-   π
+
+Outputs genome-wide TSV files.
+
+------------------------------------------------------------------------
+
+## Manhattan module
+
+Produces
+
+-   Manhattan plots
+-   Outlier windows
+-   Candidate regions
+-   WinPCA comparison
+-   HTML report
+
+------------------------------------------------------------------------
+
+## WinPCA
+
+Window-based PCA.
+
+Outputs HTML plots and per-window statistics.
+
+------------------------------------------------------------------------
+
+# Phylogenomics
+
+## SNP window trees
+
+Window-based maximum likelihood trees inferred with IQ-TREE.
+
+Temporary files are written to a configurable scratch directory to avoid
+generating thousands of permanent files.
+
+Output
+
+    chr*.window_trees.tsv.gz
+    all.window_trees.tsv.gz
+    snptrees_iqtree.summary.tsv
+
+Each tree stores
+
+-   window coordinates
+-   SNP count
+-   alignment length
+-   Newick tree
+
+------------------------------------------------------------------------
+
+## ASTRAL
+
+ASTRAL summarizes window trees into a species tree.
+
+Outputs
+
+    astral.tree
+    astral.topology.tree
+    astral_mapping.tsv
+    window_trees.newick
+
+`astral.tree`
+
+-   original ASTRAL output
+
+`astral.topology.tree`
+
+-   rooted topology only
+-   no branch lengths
+-   no support values
+-   intended for downstream software such as Dsuite
+
+------------------------------------------------------------------------
+
+# Planned modules
+
+-   Dsuite
+-   ADMIXTURE
+-   LD decay
+-   IBS / IBD
+-   PBS
+-   Tajima's D
+-   Selection scans
+-   Demographic inference
+
+------------------------------------------------------------------------
+
+# Authors
+
+Maximilian Wagner
+
+Alex Hooft van Huysduynen
+
+Hannes Svardal
+
+University of Rijeka
+
+Evolutionary Genomics Group
+
 University of Antwerp
-
----
-
-## License
 

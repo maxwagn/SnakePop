@@ -34,18 +34,31 @@ cat << 'EOF'
 Usage:
   ./snakepop <target> --cores N [options]
 
-Targets:
-  alignment
-  raw_calling
-  filtering
-  final_callset
-  variants
-  clean_intermediates
-  clean_snakemake
-  pca
-  popgenwindows 
-  popstats 
-  all
+Core workflow:
+  alignment             Map reads to the reference genome
+  raw_calling           Generate raw variant calls
+  filtering             Apply genotype and site filters
+  final_callset         Build final VCF callsets
+  variants              Run raw_calling → filtering → final_callset
+  all                   Run the complete workflow
+
+Population genomics:
+  pca                   Genome-wide PCA
+  heterozygosity        Per-sample heterozygosity and inbreeding coefficient
+  roh                   Runs of homozygosity
+  popgenwindows         Windowed FST, dXY, dA and pi
+  manhattan             Manhattan-style genome scan plots and candidate regions
+  winpca                Windowed PCA
+  popstats              Run all configured population-genomic modules
+
+Phylogenomics:
+  snptrees_iqtree       Windowed SNP trees with IQ-TREE
+  astral                ASTRAL species tree from SNP window trees
+  dsuite                Dsuite introgression tests (to be implemented)
+
+Cleanup:
+  clean_intermediates   Remove intermediate variant-calling files
+  clean_snakemake       Remove Snakemake metadata and locks
 
 Options:
   --cores N              Maximum local cores for Snakemake
@@ -57,11 +70,16 @@ Options:
 
 Examples:
   ./snakepop alignment --cores 8 --dry-run
-  ./snakepop raw_calling --cores 32 --dry-run
-  ./snakepop filtering --cores 32 --dry-run
-  ./snakepop final_callset --cores 32 --dry-run
-  ./snakepop clean_intermediates --cores 1
   ./snakepop variants --cores 32 --snakemake "--rerun-incomplete --keep-going"
+  ./snakepop pca --cores 16
+  ./snakepop heterozygosity --cores 4
+  ./snakepop roh --cores 4
+  ./snakepop popgenwindows --cores 16
+  ./snakepop manhattan --cores 4
+  ./snakepop winpca --cores 16
+  ./snakepop snptrees_iqtree --cores 8
+  ./snakepop astral --cores 1
+  ./snakepop popstats --cores 32
   ./snakepop alignment --cores 8 --snakemake "--unlock"
 EOF
 }
@@ -72,7 +90,10 @@ if [[ $# -eq 0 ]]; then
 fi
 
 case "$1" in
-    alignment|raw_calling|filtering|final_callset|variants|pca|popgenwindows|winpca|clean_intermediates|clean_snakemake|popstats|all)
+    alignment|raw_calling|filtering|final_callset|variants|all|\
+pca|heterozygosity|roh|popgenwindows|manhattan|winpca|popstats|\
+snptrees_iqtree|astral|dsuite|\
+clean_intermediates|clean_snakemake)
         TARGET="$1"
         shift
         ;;
@@ -82,6 +103,7 @@ case "$1" in
         ;;
     *)
         echo "ERROR: Unknown target '$1'"
+        echo
         usage
         exit 1
         ;;
@@ -90,17 +112,17 @@ esac
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --cores)
-            CORES="$2"
+            CORES="${2:-}"
             shift 2
             ;;
 
         --config)
-            CONFIG="$2"
+            CONFIG="${2:-}"
             shift 2
             ;;
 
         --profile)
-            PROFILE="$2"
+            PROFILE="${2:-}"
             shift 2
             ;;
 
@@ -110,7 +132,7 @@ while [[ $# -gt 0 ]]; do
             ;;
 
         --snakemake)
-            read -r -a EXTRA <<< "$2"
+            read -r -a EXTRA <<< "${2:-}"
             SNAKEMAKE_ARGS+=("${EXTRA[@]}")
             shift 2
             ;;
@@ -122,6 +144,7 @@ while [[ $# -gt 0 ]]; do
 
         *)
             echo "ERROR: Unknown option '$1'"
+            echo
             usage
             exit 1
             ;;
@@ -130,7 +153,13 @@ done
 
 if [[ -z "$CORES" ]]; then
     echo "ERROR: --cores is required"
+    echo
     usage
+    exit 1
+fi
+
+if [[ "$TARGET" == "dsuite" ]]; then
+    echo "ERROR: Dsuite module is planned but not implemented yet."
     exit 1
 fi
 

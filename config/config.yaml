@@ -71,22 +71,36 @@ resources:
     threads: 1
     mem_mb: 8000
     walltime: 4
+  
   pca:
     threads: 8
     mem_mb: 32000
     walltime: 8
+  
   popgenwindows:
     threads: 8
     mem_mb: 16000
     walltime: 2
+  
   parse_vcf:
     threads: 1
     mem_mb: 4000
     walltime: 2
+  
+  roh:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+  
   winpca:
     threads: 4
     mem_mb: 16000
     walltime: 4
+  
+  snptrees_iqtree:
+    threads: 4
+    mem_mb: 16000
+    walltime: 24
 
 individual_filter_sets:
   tif1:
@@ -164,12 +178,64 @@ popstats:
     window_step: 30000
     window_min_sites: 100
     input_format: phased
+  
+  manhattan:
+    enabled: true
+    compare_winpca: true   # set true only if WinPCA HTMLs exist
+    pairs:
+      - pop1: morph_1
+        pop2: morph_2
+    metrics:
+      - Fst
+      - dxy
+      - dA
+    include_pi: true
+    outlier_quantile: 0.995
+    ylim:
+      Fst: [-0.1, 0.6]
+      dxy: [0, null]
+      dA: [0, null]
+      pi: [0, null]
+    colors:
+      morph_1: "#4E79A7"
+      morph_2: "#F28E2B"
+      lozanoi: "#59A14F"
+      minutus: "#B07AA1"
+
+    candidate_regions:
+      primary_metric: Fst
+      merge_gap_bp: 30000
+      min_windows: 2
+
+  heterozygosity:
+    enabled: true
+    color_by: morphology
+
+  roh:
+    enabled: true
+    color_by: morphology
+
+    min_kb: 500
+    min_snp: 100
+    density_kb_per_snp: 50
+    max_gap_kb: 1000
+
+    window_snp: 50
+    window_het: 1
+    window_missing: 5
+    window_threshold: 0.05
+
+    length_classes:
+      short: [500, 1000]
+      medium: [1000, 2000]
+      long: [2000, 5000]
+      very_long: [5000, null]
 
   winpca:
     enabled: true
-    executable: bin/winpca/winpca
-    window_size: 1000000
-    increment: 50000
+    executable: bin/winpca/winpca # git clone https://github.com/MoritzBlumer/winpca.git
+    window_size: 500000
+    increment: 10000
     min_maf: 0.01
     color_by: morphology
     plot_var: 1
@@ -180,3 +246,30 @@ popstats:
       values:
         - morph_1
         - morph_2
+
+  snptrees_iqtree:
+    enabled: true
+    vcf2phylip: bin/vcf2phylip/vcf2phylip.py
+    iqtree: iqtree
+    window_size: 1000000
+    increment: 1000000
+    min_snps: 500
+    model: GTR
+    fast: true
+    UFBoots: 0
+    cleanup: true
+    tmpdir: /tmp/vsc20570
+    sample_filter:
+      ids: []
+      column: null
+      values: []
+
+  astral:
+    enabled: true
+    executable: astral
+    branch_annotate: 2   # 1=quartet support, 2=full annotation, 3=posterior prob default
+    mapping_column: morphology
+    root:
+      enabled: true
+      outgroups:
+        - minutus 
