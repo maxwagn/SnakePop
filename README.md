@@ -3,6 +3,28 @@
 A modular **Snakemake workflow for population genomics** from
 whole-genome resequencing data.
 
+```text
+                    /^\/^\
+                   _|__|  O|
+          \/     /~     \_/ \
+           \____|__________/  \
+                  \_______     \
+                          `\    \
+                            |    |
+                           /    /
+                          /    /
+                        /    /
+                      /    /      SnakePop v1
+                     |    |
+                     |    |
+                      \    \
+                       \    \______________   /
+                        \                   _/
+                         \_______________--'
+
+                           ~~~ SSSSSSSSS ~~~
+
+```
 ## Overview
 
 SnakePop is a modular Snakemake workflow designed for chromosome-level
