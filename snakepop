@@ -21,12 +21,12 @@ cat << 'EOF'
                            /    /
                           /    /
                         /    /
-                      /    /      SnakePop v1
-                     |    |
-                     |    |
-                      \    \
-                       \    \______________   /
-                        \                   _/
+                      /    /      SnakePop v1     
+                     |    |                      ~~
+                     |    |                     /*/
+                      \    \                   /*/
+                       \    \______________---/*/
+                        \                   _/*/
                          \_______________--'
 
                            ~~~ SSSSSSSSS ~~~
@@ -55,6 +55,7 @@ Phylogenomics:
   snptrees_iqtree       Windowed SNP trees with IQ-TREE
   astral                ASTRAL species tree from SNP window trees
   dsuite                Dsuite introgression tests (to be implemented)
+  twisst
 
 Cleanup:
   clean_intermediates   Remove intermediate variant-calling files
@@ -92,7 +93,7 @@ fi
 case "$1" in
     alignment|raw_calling|filtering|final_callset|variants|all|\
 pca|heterozygosity|roh|popgenwindows|manhattan|winpca|popstats|\
-snptrees_iqtree|astral|dsuite|\
+snptrees_iqtree|astral|dsuitei|twisst|\
 clean_intermediates|clean_snakemake)
         TARGET="$1"
         shift
@@ -158,10 +159,6 @@ if [[ -z "$CORES" ]]; then
     exit 1
 fi
 
-if [[ "$TARGET" == "dsuite" ]]; then
-    echo "ERROR: Dsuite module is planned but not implemented yet."
-    exit 1
-fi
 
 CMD=(
     snakemake

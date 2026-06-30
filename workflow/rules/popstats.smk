@@ -2603,6 +2603,7 @@ ASTRAL_RES = RES.get("astral", {})
 ASTRAL_GENE_TREES = f"{ASTRAL_ROOT}/window_trees.newick"
 ASTRAL_MAPPING = f"{ASTRAL_ROOT}/astral_mapping.tsv"
 ASTRAL_TREE = f"{ASTRAL_ROOT}/astral.tree"
+ASTRAL_TOPOLOGY = f"{ASTRAL_ROOT}/astral.topology.tree"
 ASTRAL_LOG = f"{ASTRAL_ROOT}/astral.log"
 
 
@@ -2689,6 +2690,7 @@ rule astral_tree:
             subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=True)
 
 
+
 rule astral_topology_tree:
     input:
         tree = ASTRAL_TREE
@@ -2698,9 +2700,17 @@ rule astral_topology_tree:
         do_root = ASTRAL_DO_ROOT,
         outgroups = ASTRAL_OUTGROUPS
     run:
+        import re
         from ete3 import Tree
 
-        t = Tree(str(input.tree), format=1)
+        with open(input.tree) as f:
+            newick = f.read().strip()
+
+        # Remove ASTRAL bracket annotations, e.g. [q1=...;q2=...]
+        newick = re.sub(r"\[[^\[\]]*\]", "", newick)
+
+        # Parse cleaned Newick
+        t = Tree(newick, format=1)
 
         if params.do_root and params.outgroups:
             outgroup = params.outgroups[0]
@@ -2714,8 +2724,18 @@ rule astral_topology_tree:
                     f"Available tips: {tips}"
                 )
 
-        # topology only: no branch lengths, no support values
-        t.write(outfile=str(output.topology), format=9)
+        # Write plain topology only: no branch lengths, no support values
+        topology = t.write(format=9).strip()
+
+        # Optional: normalize order so outgroup is visibly first
+        if params.do_root and params.outgroups:
+            outgroup = params.outgroups[0]
+            if not topology.startswith(f"({outgroup},"):
+                # topology is still correctly rooted, this only affects display order
+                pass
+
+        with open(output.topology, "w") as out:
+            out.write(topology + "\n")
 
 rule astral:
     input:
@@ -2725,6 +2745,413 @@ rule astral:
         topology = ASTRAL_TOPOLOGY,
         log = ASTRAL_LOG
 
+
+
+###############################################################################
+# Dsuite Dtrios: per-chromosome runs + DtriosCombine
+###############################################################################
+
+DSUITE_CFG = config["popstats"].get("dsuite", {})
+DSUITE_ROOT = f"{POP_ROOT}/dsuite"
+
+DSUITE_EXE = DSUITE_CFG.get("executable", "Dsuite")
+DSUITE_MAPPING_COLUMN = DSUITE_CFG.get(
+    "mapping_column",
+    config["popstats"].get("population_column", "morphology"),
+)
+DSUITE_OUTGROUPS = DSUITE_CFG.get("outgroups", [])
+DSUITE_TREE = DSUITE_CFG.get("tree", ASTRAL_TOPOLOGY)
+
+DSUITE_JKNUM = DSUITE_CFG.get("jknum", 20)
+DSUITE_JKWINDOW = DSUITE_CFG.get("jkwindow", None)
+DSUITE_NO_F4_RATIO = DSUITE_CFG.get("no_f4_ratio", False)
+DSUITE_ABBA_CLUSTERING = DSUITE_CFG.get("abba_clustering", False)
+DSUITE_USE_GENOTYPE_PROBABILITIES = DSUITE_CFG.get("use_genotype_probabilities", False)
+
+DSUITE_RES = RES.get("dsuite", {})
+
+DSUITE_SETS = f"{DSUITE_ROOT}/sets.txt"
+DSUITE_COMBINED_PREFIX = f"{DSUITE_ROOT}/combined/dsuite"
+DSUITE_COMBINED_LOG = f"{DSUITE_ROOT}/combined/dsuite_combine.log"
+
+DSUITE_CHROM_DMIN = expand(
+    f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}_Dmin.txt",
+    chrom=CHROMOSOMES,
+)
+
+DSUITE_COMBINED_BBAA = f"{DSUITE_COMBINED_PREFIX}_combined_BBAA.txt"
+DSUITE_COMBINED_DMIN = f"{DSUITE_COMBINED_PREFIX}_combined_Dmin.txt"
+DSUITE_COMBINED_TREE = f"{DSUITE_COMBINED_PREFIX}_combined_tree.txt"
+
+
+rule prepare_dsuite_sets:
+    input:
+        metadata = SAMPLE_TABLE
+    output:
+        sets = DSUITE_SETS
+    run:
+        import os
+        import pandas as pd
+
+        os.makedirs(DSUITE_ROOT, exist_ok=True)
+
+        meta = pd.read_csv(input.metadata, sep="\t", dtype=str)
+
+        if SAMPLE_COL not in meta.columns:
+            raise ValueError(f"Missing sample column in metadata: {SAMPLE_COL}")
+
+        if DSUITE_MAPPING_COLUMN not in meta.columns:
+            raise ValueError(
+                f"Missing Dsuite mapping column in metadata: {DSUITE_MAPPING_COLUMN}"
+            )
+
+        if not DSUITE_OUTGROUPS:
+            raise ValueError(
+                "No Dsuite outgroup specified. Add popstats: dsuite: outgroups:"
+            )
+
+        df = meta[[SAMPLE_COL, DSUITE_MAPPING_COLUMN]].dropna().copy()
+        df[DSUITE_MAPPING_COLUMN] = df[DSUITE_MAPPING_COLUMN].map(clean_pop_name)
+
+        outgroups = set(clean_pop_name(x) for x in DSUITE_OUTGROUPS)
+
+        with open(output.sets, "w") as out:
+            for _, row in df.iterrows():
+                sample = row[SAMPLE_COL]
+                group = row[DSUITE_MAPPING_COLUMN]
+
+                if group in outgroups:
+                    group = "Outgroup"
+
+                out.write(f"{sample}\t{group}\n")
+
+
+rule dsuite_dtrios_chrom:
+    input:
+        vcf = f"{VC_ROOT}/vcf/biallelic_snps.{IND_FILTER_ID}.{SITE_FILTER_ID}.{{chrom}}.vcf.gz",
+        tbi = f"{VC_ROOT}/vcf/biallelic_snps.{IND_FILTER_ID}.{SITE_FILTER_ID}.{{chrom}}.vcf.gz.tbi",
+        sets = DSUITE_SETS,
+        tree = DSUITE_TREE
+    output:
+        bbaa = f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}_BBAA.txt",
+        dmin = f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}_Dmin.txt",
+        tree = f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}_tree.txt",
+        combine = f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}_combine.txt",
+        combine_stderr = f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}_combine_stderr.txt",
+        log = f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}.log"
+    threads: DSUITE_RES.get("threads", 1)
+    resources:
+        mem_mb = DSUITE_RES.get("mem_mb", 16000),
+        walltime = DSUITE_RES.get("walltime", 24)
+    params:
+        exe = DSUITE_EXE,
+        prefix = lambda wc: f"{DSUITE_ROOT}/{wc.chrom}/dsuite_{wc.chrom}",
+        jknum = DSUITE_JKNUM,
+        jkwindow = DSUITE_JKWINDOW,
+        no_f4_ratio = DSUITE_NO_F4_RATIO,
+        abba_clustering = DSUITE_ABBA_CLUSTERING,
+        use_gp = DSUITE_USE_GENOTYPE_PROBABILITIES
+    run:
+        import os
+        import subprocess
+
+        os.makedirs(os.path.dirname(output.log), exist_ok=True)
+
+        cmd = [
+            params.exe,
+            "Dtrios",
+            "-t", input.tree,
+            "-o", params.prefix,
+        ]
+
+        if params.jkwindow is not None:
+            cmd += ["-j", str(params.jkwindow)]
+        else:
+            cmd += ["-k", str(params.jknum)]
+
+        if params.no_f4_ratio:
+            cmd.append("--no-f4-ratio")
+
+        if params.abba_clustering:
+            cmd.append("--ABBAclustering")
+
+        if params.use_gp:
+            cmd.append("-g")
+
+        cmd += [
+            input.vcf,
+            input.sets,
+        ]
+
+        with open(output.log, "w") as log:
+            subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=True)
+
+
+rule combine_dsuite_dtrios:
+    input:
+        dmins = DSUITE_CHROM_DMIN,
+        tree = DSUITE_TREE
+    output:
+        check = f"{DSUITE_ROOT}/combined/dsuite_combine.checkpoint",
+        bbaa = DSUITE_COMBINED_BBAA,
+        dmin = DSUITE_COMBINED_DMIN,
+        tree = DSUITE_COMBINED_TREE,
+        log = DSUITE_COMBINED_LOG
+    params:
+        exe = DSUITE_EXE,
+        out_prefix = os.getcwd() + "/" + DSUITE_COMBINED_PREFIX,
+        in_prefixes = expand(
+            os.getcwd() + "/" + f"{DSUITE_ROOT}/{{chrom}}/dsuite_{{chrom}}",
+            chrom = CHROMOSOMES,
+        )
+    run:
+        import os
+        import subprocess
+
+        os.makedirs(os.path.dirname(output.log), exist_ok=True)
+
+        cmd = [
+            params.exe,
+            "DtriosCombine",
+            "-o", params.out_prefix,
+            "-t", input.tree,
+        ] + list(params.in_prefixes)
+
+        with open(output.log, "w") as log:
+            subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=True)
+
+        if not os.path.exists(output.tree) or os.path.getsize(output.tree) == 0:
+            raise ValueError(f"Dsuite combine did not create non-empty {output.tree}")
+
+        with open(output.check, "w") as f:
+            f.write("OK\n")
+
+
+
+rule dsuite:
+    input:
+        sets = DSUITE_SETS,
+        chrom_dmins = DSUITE_CHROM_DMIN,
+        combined_check = f"{DSUITE_ROOT}/combined/dsuite_combine.checkpoint",
+        combined_bbaa = DSUITE_COMBINED_BBAA,
+        combined_dmin = DSUITE_COMBINED_DMIN,
+        combined_tree = DSUITE_COMBINED_TREE,
+        log = DSUITE_COMBINED_LOG
+
+
+###############################################################################
+# Twisst topology weighting from SNP-window trees
+###############################################################################
+
+TWISST_CFG = config["popstats"].get("twisst", {})
+TWISST_ROOT = f"{POP_ROOT}/twisst"
+
+TWISST_EXE = TWISST_CFG.get("executable", "bin/twisst/twisst.py")
+TWISST_MAPPING_COLUMN = TWISST_CFG.get(
+    "mapping_column",
+    config["popstats"].get("population_column", "morphology"),
+)
+TWISST_OUTGROUP = TWISST_CFG.get("outgroup", None)
+TWISST_METHOD = TWISST_CFG.get("method", "complete")
+TWISST_ITERATIONS = TWISST_CFG.get("iterations", 100)
+TWISST_ABORT_CUTOFF = TWISST_CFG.get("abort_cutoff", 100)
+
+TWISST_PLOT_CFG = TWISST_CFG.get("plotting", {})
+TWISST_PLOT_ENABLED = TWISST_PLOT_CFG.get("enabled", True)
+TWISST_PLOT_TOPOLOGIES = TWISST_PLOT_CFG.get("topologies", 3)  # integer or "all"
+TWISST_PLOT_COMBINE_OTHER = TWISST_PLOT_CFG.get("combine_other", True)
+TWISST_PLOT_SMOOTH = TWISST_PLOT_CFG.get("smooth", 1)
+TWISST_PLOT_STACKED_AREA = TWISST_PLOT_CFG.get("stacked_area", True)
+TWISST_PLOT_LINE = TWISST_PLOT_CFG.get("line_plot", True)
+TWISST_PLOT_WIDTH = TWISST_PLOT_CFG.get("width", 14)
+TWISST_PLOT_HEIGHT = TWISST_PLOT_CFG.get("height", 8)
+TWISST_PLOT_DPI = TWISST_PLOT_CFG.get("dpi", 300)
+TWISST_PLOT_FORMATS = TWISST_PLOT_CFG.get("formats", ["pdf", "svg"])
+TWISST_PLOT_CHR_LABELS = TWISST_PLOT_CFG.get("chromosome_labels", True)
+TWISST_PLOT_CHR_LINES = TWISST_PLOT_CFG.get("chromosome_lines", True)
+TWISST_PLOT_SHOW_PERCENTAGES = TWISST_PLOT_CFG.get("show_percentages", True)
+TWISST_PLOT_TOPOLOGY_PANEL = TWISST_PLOT_CFG.get("topology_panel", True)
+
+TWISST_RES = RES.get("twisst", {})
+
+TWISST_TREEFILE = f"{TWISST_ROOT}/window_trees.newick"
+TWISST_GROUPS_FILE = f"{TWISST_ROOT}/groups.tsv"
+TWISST_TREE_METADATA = f"{TWISST_ROOT}/window_tree_metadata.tsv"
+TWISST_WEIGHTS = f"{TWISST_ROOT}/twisst.weights.tsv"
+TWISST_DISTANCES = f"{TWISST_ROOT}/twisst.distances.tsv"
+TWISST_TOPOLOGIES = f"{TWISST_ROOT}/twisst.topologies.tsv"
+TWISST_LOG = f"{TWISST_ROOT}/twisst.log"
+
+TWISST_PLOTS_ROOT = f"{TWISST_ROOT}/plots"
+TWISST_PLOT_PREFIX = f"{TWISST_PLOTS_ROOT}/twisst_topology_weights"
+
+TWISST_PLOT_OUTPUTS = [
+    f"{TWISST_PLOT_PREFIX}.{fmt.lower()}"
+    for fmt in TWISST_PLOT_FORMATS
+] if TWISST_PLOT_ENABLED else []
+
+
+rule prepare_twisst_input:
+    input:
+        trees = SNPTREE_ALL_TREES,
+        metadata = SAMPLE_TABLE
+    output:
+        treefile = TWISST_TREEFILE,
+        groups = TWISST_GROUPS_FILE,
+        tree_metadata = TWISST_TREE_METADATA
+    run:
+        import os
+        import pandas as pd
+
+        os.makedirs(TWISST_ROOT, exist_ok=True)
+
+        meta = pd.read_csv(input.metadata, sep="\t", dtype=str)
+
+        if SAMPLE_COL not in meta.columns:
+            raise ValueError(f"Missing sample column in metadata: {SAMPLE_COL}")
+
+        if TWISST_MAPPING_COLUMN not in meta.columns:
+            raise ValueError(
+                f"Missing Twisst mapping column in metadata: {TWISST_MAPPING_COLUMN}"
+            )
+
+        mapping = meta[[SAMPLE_COL, TWISST_MAPPING_COLUMN]].dropna().copy()
+        mapping[TWISST_MAPPING_COLUMN] = mapping[TWISST_MAPPING_COLUMN].map(clean_pop_name)
+
+        if mapping.empty:
+            raise ValueError(
+                f"No samples found for Twisst mapping column '{TWISST_MAPPING_COLUMN}'."
+            )
+
+        mapping.to_csv(output.groups, sep="\t", index=False, header=False)
+
+        df = pd.read_csv(input.trees, sep="\t", compression="gzip")
+
+        if "tree" not in df.columns:
+            raise ValueError("Missing tree column in SNP-tree table.")
+
+        required = ["tree_id", "scaffold", "start", "end", "n_vcf_snps", "n_phy_sites"]
+        existing = [x for x in required if x in df.columns]
+
+        if not {"scaffold", "start", "end"}.issubset(set(existing)):
+            raise ValueError(
+                "Twisst plotting requires scaffold/start/end columns in SNP-tree metadata."
+            )
+
+        df[existing].to_csv(output.tree_metadata, sep="\t", index=False)
+
+        with open(output.treefile, "w") as out:
+            for tree in df["tree"].dropna():
+                tree = str(tree).strip()
+                if tree:
+                    out.write(tree + "\n")
+
+
+rule run_twisst:
+    input:
+        treefile = TWISST_TREEFILE,
+        groups = TWISST_GROUPS_FILE
+    output:
+        weights = TWISST_WEIGHTS,
+        distances = TWISST_DISTANCES,
+        topologies = TWISST_TOPOLOGIES,
+        log = TWISST_LOG
+    threads: TWISST_RES.get("threads", 1)
+    resources:
+        mem_mb = TWISST_RES.get("mem_mb", 8000),
+        walltime = TWISST_RES.get("walltime", 8)
+    params:
+        exe = TWISST_EXE,
+        outgroup = TWISST_OUTGROUP,
+        method = TWISST_METHOD,
+        iterations = TWISST_ITERATIONS,
+        abort_cutoff = TWISST_ABORT_CUTOFF
+    run:
+        import os
+        import subprocess
+        import pandas as pd
+
+        os.makedirs(TWISST_ROOT, exist_ok=True)
+
+        groups = pd.read_csv(
+            input.groups,
+            sep="\t",
+            header=None,
+            names=["sample", "group"],
+            dtype=str,
+        )
+
+        group_args = []
+        for group, sub in groups.groupby("group"):
+            samples = sorted(sub["sample"].dropna().unique())
+            if samples:
+                group_args += ["-g", group] + list(samples)
+
+        cmd = [
+            "python",
+            params.exe,
+            "-t", input.treefile,
+            "-w", output.weights,
+            "-D", output.distances,
+            "--outputTopos", output.topologies,
+            "--method", params.method,
+            "--abortCutoff", str(params.abort_cutoff),
+            "--silent",
+        ] + group_args
+
+        if params.method == "fixed":
+            cmd += ["--iterations", str(params.iterations)]
+
+        if params.outgroup:
+            cmd += ["--outgroup", clean_pop_name(params.outgroup)]
+
+        with open(output.log, "w") as log:
+            log.write("COMMAND:\n")
+            log.write(" ".join(cmd) + "\n\n")
+            subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=True)
+
+
+rule plot_twisst_topologies:
+    input:
+        weights = TWISST_WEIGHTS,
+        metadata = TWISST_TREE_METADATA,
+        topologies = TWISST_TOPOLOGIES
+    output:
+        plots = TWISST_PLOT_OUTPUTS
+    params:
+        script = "bin/plot_twisst_snakepop.R",
+        out_prefix = TWISST_PLOT_PREFIX,
+        topologies = TWISST_PLOT_TOPOLOGIES,
+        combine_other = TWISST_PLOT_COMBINE_OTHER,
+        smooth = TWISST_PLOT_SMOOTH,
+        width = TWISST_PLOT_WIDTH,
+        height = TWISST_PLOT_HEIGHT,
+        formats = ",".join(TWISST_PLOT_FORMATS)
+    shell:
+        r"""
+        Rscript {params.script} \
+          --weights {input.weights} \
+          --metadata {input.metadata} \
+          --topologies {input.topologies} \
+          --out-prefix {params.out_prefix} \
+          --top-n {params.topologies} \
+          --combine-other {params.combine_other} \
+          --smooth {params.smooth} \
+          --width {params.width} \
+          --height {params.height} \
+          --formats {params.formats}
+        """
+
+rule twisst:
+    input:
+        treefile = TWISST_TREEFILE,
+        groups = TWISST_GROUPS_FILE,
+        metadata = TWISST_TREE_METADATA,
+        weights = TWISST_WEIGHTS,
+        distances = TWISST_DISTANCES,
+        topologies = TWISST_TOPOLOGIES,
+        log = TWISST_LOG,
+        plots = TWISST_PLOT_OUTPUTS
 
 ############################################################
 
@@ -2737,7 +3164,9 @@ rule popstats:
         rules.heterozygosity.input,
         rules.roh.input,
         rules.snptrees_iqtree.input,
-        rules.astral.input
+        rules.astral.input,
+        rules.dsuite.input,
+        rules.twisst.input
 
 
 

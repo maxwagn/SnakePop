@@ -42,3 +42,15 @@ dependencies:
   - astral-tree
   - seqkit
   - biopython
+
+  - r-base>=4.3
+
+  # plotting
+  - r-optparse
+  - r-data.table
+  - r-ggplot2
+  - r-scales
+  - r-ape
+  - r-phangorn
+  - r-rcolorbrewer
+  - r-cowplot

@@ -102,6 +102,18 @@ resources:
     mem_mb: 16000
     walltime: 24
 
+  dsuite:
+    threads: 1
+    mem_mb: 16000
+    walltime: 24
+
+  twisst:
+    threads: 1
+    mem_mb: 8000
+    walltime: 8
+
+
+
 individual_filter_sets:
   tif1:
     ab_test_thresh: 0.01
@@ -272,4 +284,53 @@ popstats:
     root:
       enabled: true
       outgroups:
-        - minutus 
+        - lozanoi 
+
+  dsuite:
+    enabled: true
+    executable: bin/Dsuite/Build/Dsuite
+    mapping_column: morphology
+    outgroups:
+      - lozanoi 
+    tree: results/popstats/GCA_965276375.1_fPomMin1.1_19062026_GCA_965276375.1_fPomMin1.1/astral/astral.topology.tree
+    jknum: 20
+    no_f4_ratio: false
+    abba_clustering: false
+
+
+  twisst:
+    enabled: true
+    executable: bin/twisst/twisst.py
+    mapping_column: morphology
+    outgroup: minutus
+    method: complete
+    iterations: 100
+    abort_cutoff: 100
+    plotting:
+      enabled: true
+
+      # Integer = plot N most frequent topologies
+      # "all" = plot all topologies
+      topologies: 3
+      combine_other: true
+
+      smooth: 1
+
+      # Panels
+      topology_panel: true
+      stacked_area: true
+      line_plot: true
+
+      # Figure
+      width: 14
+      height: 9
+      dpi: 300
+
+      formats:
+        - pdf
+        - svg
+        - png
+
+      chromosome_labels: true
+      chromosome_lines: true
+      show_percentages: true

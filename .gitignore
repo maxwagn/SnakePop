@@ -48,3 +48,5 @@ bin/vcf2phylip/
 
 bin/__pycache__
 bin/winpca
+bin/Dsuite/
+bin/twisst
