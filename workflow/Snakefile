@@ -27,10 +27,6 @@ include: "rules/popstats/astral.smk"
 include: "rules/popstats/dsuite.smk"
 include: "rules/popstats/twisst.smk"
 include: "rules/popstats/sfs.smk"
-
-# Add this once workflow/rules/popstats/sfs.smk exists:
-# include: "rules/popstats/sfs.smk"
-
 include: "rules/popstats/popstats_targets.smk"
 
 rule all:
