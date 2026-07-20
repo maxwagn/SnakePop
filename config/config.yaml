@@ -1,27 +1,75 @@
+###############################################################################
+# SnakePop configuration
+###############################################################################
+
+###############################################################################
+# Reference genome
+###############################################################################
+
 ref:
+  # Short name used in output paths.
   name: GCA_965276375.1_fPomMin1.1
+
+  # Original downloaded reference FASTA.
   original_fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.fna.gz
+
+  # NCBI assembly report used for chromosome/scaffold renaming.
   assembly_report: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.sequence_report.tsv
+
+  # Final reference FASTA used by SnakePop.
   fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic_chromnames.fna
+
   species: Pomatoschistus minutus
+
+  # Prefix used when renaming chromosomes.
   chrom_prefix: chr
+
+  # Name assigned to the mitochondrial scaffold/chromosome.
   mt_name: mtDNA
 
+
+###############################################################################
+# Samples and callset
+###############################################################################
+
 sample_table: config/Metadata_Norwegian_gobies_180526.tsv
+
+# Column in the metadata table containing sample IDs.
 sample_id_column: id
+
+# Column containing paths to read files.
 read_files_column: read_files
 
 callset:
+  # Identifier used in output directories.
   id: GCA_965276375.1_fPomMin1.1_19062026
 
+
+###############################################################################
+# Variant calling and filtering
+###############################################################################
+
 variant_calling:
+  # Genomic chunk size for variant calling.
   chunk_size: 5000000
+
+  # Maximum total depth used during filtering.
   max_depth: 3000
+
+  # Names of the filter sets defined below.
   ind_filter_id: tif1
   site_filter_id: sft1
+
+  # If false, temporary files are removed where possible.
   keep_intermediates: false
 
+
+###############################################################################
+# Computational resources
+###############################################################################
+
 resources:
+
   rename_reference:
     threads: 1
     mem_mb: 4000
@@ -71,32 +119,32 @@ resources:
     threads: 1
     mem_mb: 8000
     walltime: 4
-  
+
   pca:
     threads: 8
     mem_mb: 32000
     walltime: 8
-  
+
   popgenwindows:
     threads: 8
     mem_mb: 16000
     walltime: 2
-  
+
   parse_vcf:
     threads: 1
     mem_mb: 4000
     walltime: 2
-  
+
   roh:
     threads: 1
     mem_mb: 8000
     walltime: 4
-  
+
   winpca:
     threads: 4
     mem_mb: 16000
     walltime: 4
-  
+
   snptrees_iqtree:
     threads: 4
     mem_mb: 16000
@@ -112,19 +160,42 @@ resources:
     mem_mb: 8000
     walltime: 8
 
+  sfs:
+    threads: 1
+    mem_mb: 8000
+    walltime: 6
 
+
+###############################################################################
+# Individual-level genotype filters
+###############################################################################
 
 individual_filter_sets:
+
   tif1:
+    # Allele-balance test threshold.
     ab_test_thresh: 0.01
+
+    # Minimum genotype quality.
     min_GQ: 10
+
+    # Genotypes with extreme depth can be set to missing.
     max_dp_to_missing_pval: 1.0e-2
     min_dp_to_missing_pval: 0
 
+
+###############################################################################
+# Site-level filters
+###############################################################################
+
 site_filter_sets:
+
   sft1:
+    # Merge nearby filtered sites within this distance.
     merge_dist: 10
+
     filters:
+
       LowMQ:
         tag: MQ
         threshold: 50
@@ -168,46 +239,95 @@ site_filter_sets:
         threshold_type: absolute
         operator: ">"
 
+
+###############################################################################
+# Population-genomic analyses
+###############################################################################
+
 popstats:
+
+  # Default metadata column used to define populations/groups.
+  population_column: morphology
+
+
+  ###########################################################################
+  # PCA
+  ###########################################################################
+
   pca:
     n_pcs: 10
     maf: 0.05
     mind: 0.2
     geno: 0.2
+
+    # Metadata column used for colouring samples.
     color_by: morphology
+
     label_samples: true
+
+    # If true, PCA is run on LD-pruned SNPs.
     ld_prune: false
+
+    # PLINK chromosome setting.
     plink_chr_set: 23 no-xy no-mt
+
     indep_pairwise:
       window_kb: 50
       step: 5
       r2: 0.2
-  population_column: morphology
+
+
+  ###########################################################################
+  # Windowed population statistics
+  ###########################################################################
 
   popgenwindows:
     enabled: true
+
+    # Window size and step in bp.
     window_size: 60000
     window_step: 30000
+
+    # Minimum number of sites required per window.
     window_min_sites: 100
+
+    # Use phased or unphased genotype input.
     input_format: phased
-  
+
+
+  ###########################################################################
+  # Manhattan-style genome scans
+  ###########################################################################
+
   manhattan:
     enabled: true
-    compare_winpca: true   # set true only if WinPCA HTMLs exist
+
+    # If true, candidate regions are compared with WinPCA output.
+    compare_winpca: true
+
+    # Pairwise population comparisons.
     pairs:
       - pop1: morph_1
         pop2: morph_2
+
+    # Statistics to plot.
     metrics:
       - Fst
       - dxy
       - dA
+
+    # Add pi panels for both populations.
     include_pi: true
+
+    # Quantile used to define outlier windows.
     outlier_quantile: 0.995
+
     ylim:
       Fst: [-0.1, 0.6]
       dxy: [0, null]
       dA: [0, null]
       pi: [0, null]
+
     colors:
       morph_1: "#4E79A7"
       morph_2: "#F28E2B"
@@ -215,13 +335,28 @@ popstats:
       minutus: "#B07AA1"
 
     candidate_regions:
+      # Statistic used to merge outlier windows into candidate regions.
       primary_metric: Fst
+
+      # Merge outlier windows separated by <= this distance.
       merge_gap_bp: 30000
+
+      # Minimum number of outlier windows required.
       min_windows: 2
+
+
+  ###########################################################################
+  # Heterozygosity
+  ###########################################################################
 
   heterozygosity:
     enabled: true
     color_by: morphology
+
+
+  ###########################################################################
+  # Runs of homozygosity
+  ###########################################################################
 
   roh:
     enabled: true
@@ -243,94 +378,229 @@ popstats:
       long: [2000, 5000]
       very_long: [5000, null]
 
+
+  ###########################################################################
+  # Windowed PCA
+  ###########################################################################
+
   winpca:
     enabled: true
-    executable: bin/winpca/winpca # git clone https://github.com/MoritzBlumer/winpca.git
+
+    # Install from: https://github.com/MoritzBlumer/winpca.git
+    executable: bin/winpca/winpca
+
     window_size: 500000
     increment: 10000
     min_maf: 0.01
+
     color_by: morphology
+
     plot_var: 1
     plot_interval: 5
-    plot_format: HTML #,SVG # SVG requires CHROME
+
+    # SVG requires Chrome; HTML is safest.
+    plot_format: HTML
+
+    # Optional sample subset.
     sample_filter:
       column: morphology
       values:
         - morph_1
         - morph_2
 
+
+  ###########################################################################
+  # Windowed SNP trees with IQ-TREE
+  ###########################################################################
+
   snptrees_iqtree:
     enabled: true
+
     vcf2phylip: bin/vcf2phylip/vcf2phylip.py
     iqtree: iqtree
+
     window_size: 1000000
     increment: 1000000
     min_snps: 500
+
     model: GTR
     fast: true
     UFBoots: 0
+
     cleanup: true
     tmpdir: /tmp/vsc20570
+
     sample_filter:
       ids: []
       column: null
       values: []
 
+
+  ###########################################################################
+  # ASTRAL species tree
+  ###########################################################################
+
   astral:
     enabled: true
     executable: astral
-    branch_annotate: 2   # 1=quartet support, 2=full annotation, 3=posterior prob default
+
+    # 1 = quartet support
+    # 2 = full annotation
+    # 3 = posterior probability/default
+    branch_annotate: 2
+
     mapping_column: morphology
+
     root:
       enabled: true
       outgroups:
-        - lozanoi 
+        - lozanoi
+
+
+  ###########################################################################
+  # Dsuite introgression tests
+  ###########################################################################
 
   dsuite:
     enabled: true
+
     executable: bin/Dsuite/Build/Dsuite
     mapping_column: morphology
+
     outgroups:
-      - lozanoi 
+      - lozanoi
+
     tree: results/popstats/GCA_965276375.1_fPomMin1.1_19062026_GCA_965276375.1_fPomMin1.1/astral/astral.topology.tree
+
     jknum: 20
     no_f4_ratio: false
     abba_clustering: false
 
 
+  ###########################################################################
+  # TWISST topology weighting
+  ###########################################################################
+
   twisst:
     enabled: true
+
     executable: bin/twisst/twisst.py
     mapping_column: morphology
-    outgroup: minutus
+
+    # Optional outgroup used by TWISST.
+    # null means no explicit outgroup.
+    outgroup: null
+
+    # complete or fixed.
     method: complete
+
+    # Used only for method: fixed.
     iterations: 100
+
     abort_cutoff: 100
+
     plotting:
       enabled: true
+      script: bin/plot_twisst_snakepop.R
 
-      # Integer = plot N most frequent topologies
-      # "all" = plot all topologies
-      topologies: 3
-      combine_other: true
-
-      smooth: 1
-
-      # Panels
-      topology_panel: true
-      stacked_area: true
-      line_plot: true
-
-      # Figure
       width: 14
-      height: 9
-      dpi: 300
+      height: 8
 
       formats:
         - pdf
         - svg
         - png
 
-      chromosome_labels: true
-      chromosome_lines: true
-      show_percentages: true
+      # Number of highest-weighted topologies to show in top-N plots.
+      top_n: 6
+
+      # Rolling smoothing window for genome-wide plots.
+      smooth_k: 15
+
+
+  ###########################################################################
+  # Site Frequency Spectrum
+  ###########################################################################
+
+  sfs:
+    enabled: true
+
+    # Metadata column defining populations.
+    population_column: morphology
+
+    populations:
+      # Populations to include.
+      #
+      # all
+      #   -> every population present in the metadata.
+      #
+      # list
+      #   -> only the specified populations.
+      include: all
+
+      # Example:
+      # include:
+      #   - morph_1
+      #   - morph_2
+      #   - minutus
+
+    polarisation:
+      # folded
+      #   -> minor allele frequency spectrum.
+      #      Does not require ancestral-state information.
+      #
+      # unfolded
+      #   -> derived allele frequency spectrum.
+      #      Requires one or more outgroups.
+      mode: folded
+
+      # Only used for unfolded SFS.
+      outgroups:
+        - minutus
+        - lozanoi
+
+    spectra:
+      one_d:
+        # Calculates one SFS for every included population.
+        enabled: true
+
+      two_d:
+        enabled: true
+
+        # Pairwise joint SFS comparisons.
+        #
+        # all
+        #   -> every pairwise comparison among included populations.
+        #
+        # list
+        #   -> only the explicitly listed pairs.
+        #comparisons: all
+
+        # Example:
+        comparisons:
+           - [morph_1, morph_2]
+        #   - [morph_1, minutus]
+
+    regions:
+      # SFS across all SNPs.
+      genome: true
+
+      # SFS restricted to FST outlier windows from the Manhattan module.
+      outlier_windows: true
+
+      # SFS restricted to merged candidate regions from the Manhattan module.
+      candidate_regions: true
+
+      # Optional user-defined BED/GFF/gene regions.
+      custom_regions:
+        enabled: false
+        source: bed
+        file: null
+
+    plotting:
+      enabled: true
+
+      formats:
+        - pdf
+        - svg
+        - png

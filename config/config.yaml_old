@@ -1,0 +1,463 @@
+ref:
+  name: GCA_965276375.1_fPomMin1.1
+  original_fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.fna.gz
+  assembly_report: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.sequence_report.tsv
+  fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic_chromnames.fna
+  species: Pomatoschistus minutus
+  chrom_prefix: chr
+  mt_name: mtDNA
+
+sample_table: config/Metadata_Norwegian_gobies_180526.tsv
+sample_id_column: id
+read_files_column: read_files
+
+callset:
+  id: GCA_965276375.1_fPomMin1.1_19062026
+
+variant_calling:
+  chunk_size: 5000000
+  max_depth: 3000
+  ind_filter_id: tif1
+  site_filter_id: sft1
+  keep_intermediates: false
+
+resources:
+  rename_reference:
+    threads: 1
+    mem_mb: 4000
+    walltime: 1
+
+  bwa_index:
+    threads: 8
+    mem_mb: 8000
+    walltime: 4
+
+  align_reads:
+    threads: 8
+    mem_mb: 18000
+    walltime: 48
+
+  flagstat:
+    threads: 1
+    mem_mb: 4000
+    walltime: 1
+
+  call_all_sites_bcf:
+    threads: 2
+    mem_mb: 18000
+    walltime: 24
+
+  genotype_filter_all_sites:
+    threads: 1
+    mem_mb: 36000
+    walltime: 12
+
+  add_site_filters:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+
+  make_chrom_all_sites:
+    threads: 1
+    mem_mb: 12000
+    walltime: 8
+
+  make_chrom_variants:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+
+  make_chrom_biallelic_snps:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+  
+  pca:
+    threads: 8
+    mem_mb: 32000
+    walltime: 8
+  
+  popgenwindows:
+    threads: 8
+    mem_mb: 16000
+    walltime: 2
+  
+  parse_vcf:
+    threads: 1
+    mem_mb: 4000
+    walltime: 2
+  
+  roh:
+    threads: 1
+    mem_mb: 8000
+    walltime: 4
+  
+  winpca:
+    threads: 4
+    mem_mb: 16000
+    walltime: 4
+  
+  snptrees_iqtree:
+    threads: 4
+    mem_mb: 16000
+    walltime: 24
+
+  dsuite:
+    threads: 1
+    mem_mb: 16000
+    walltime: 24
+
+  twisst:
+    threads: 1
+    mem_mb: 8000
+    walltime: 8
+
+  sfs:
+    threads: 1
+    mem_mb: 8000
+    walltime: 6
+
+
+
+individual_filter_sets:
+  tif1:
+    ab_test_thresh: 0.01
+    min_GQ: 10
+    max_dp_to_missing_pval: 1.0e-2
+    min_dp_to_missing_pval: 0
+
+site_filter_sets:
+  sft1:
+    merge_dist: 10
+    filters:
+      LowMQ:
+        tag: MQ
+        threshold: 50
+        threshold_type: absolute
+        operator: "<"
+
+      ExcessMQ0:
+        tag: MQ0F
+        threshold: 0.1
+        threshold_type: absolute
+        operator: ">"
+
+      StrandBias:
+        tag: MQSBZ
+        threshold: 1.0e-3
+        threshold_type: absolute
+        operator: "<"
+        description: Highly significant Mann-Whitney U test of Mapping Quality vs Strand Bias.
+
+      ExcessHet:
+        tag: ExcHetOrig
+        threshold: 0.2
+        threshold_type: absolute
+        operator: "<"
+
+      AlleleBalance:
+        tag: AB_Het
+        threshold: 20
+        threshold_type: absolute
+        operator: ">"
+
+      DepthDeviation:
+        tag: DD
+        threshold: 2
+        threshold_type: absolute
+        operator: ">"
+
+      ExcessMissing:
+        tag: MF
+        threshold: 0.2
+        threshold_type: absolute
+        operator: ">"
+
+popstats:
+  pca:
+    n_pcs: 10
+    maf: 0.05
+    mind: 0.2
+    geno: 0.2
+    color_by: morphology
+    label_samples: true
+    ld_prune: false
+    plink_chr_set: 23 no-xy no-mt
+    indep_pairwise:
+      window_kb: 50
+      step: 5
+      r2: 0.2
+  population_column: morphology
+
+  popgenwindows:
+    enabled: true
+    window_size: 60000
+    window_step: 30000
+    window_min_sites: 100
+    input_format: phased
+  
+  manhattan:
+    enabled: true
+    compare_winpca: true   # set true only if WinPCA HTMLs exist
+    pairs:
+      - pop1: morph_1
+        pop2: morph_2
+    metrics:
+      - Fst
+      - dxy
+      - dA
+    include_pi: true
+    outlier_quantile: 0.995
+    ylim:
+      Fst: [-0.1, 0.6]
+      dxy: [0, null]
+      dA: [0, null]
+      pi: [0, null]
+    colors:
+      morph_1: "#4E79A7"
+      morph_2: "#F28E2B"
+      lozanoi: "#59A14F"
+      minutus: "#B07AA1"
+
+    candidate_regions:
+      primary_metric: Fst
+      merge_gap_bp: 30000
+      min_windows: 2
+
+  heterozygosity:
+    enabled: true
+    color_by: morphology
+
+  roh:
+    enabled: true
+    color_by: morphology
+
+    min_kb: 500
+    min_snp: 100
+    density_kb_per_snp: 50
+    max_gap_kb: 1000
+
+    window_snp: 50
+    window_het: 1
+    window_missing: 5
+    window_threshold: 0.05
+
+    length_classes:
+      short: [500, 1000]
+      medium: [1000, 2000]
+      long: [2000, 5000]
+      very_long: [5000, null]
+
+  winpca:
+    enabled: true
+    executable: bin/winpca/winpca # git clone https://github.com/MoritzBlumer/winpca.git
+    window_size: 500000
+    increment: 10000
+    min_maf: 0.01
+    color_by: morphology
+    plot_var: 1
+    plot_interval: 5
+    plot_format: HTML #,SVG # SVG requires CHROME
+    sample_filter:
+      column: morphology
+      values:
+        - morph_1
+        - morph_2
+
+  snptrees_iqtree:
+    enabled: true
+    vcf2phylip: bin/vcf2phylip/vcf2phylip.py
+    iqtree: iqtree
+    window_size: 1000000
+    increment: 1000000
+    min_snps: 500
+    model: GTR
+    fast: true
+    UFBoots: 0
+    cleanup: true
+    tmpdir: /tmp/vsc20570
+    sample_filter:
+      ids: []
+      column: null
+      values: []
+
+  astral:
+    enabled: true
+    executable: astral
+    branch_annotate: 2   # 1=quartet support, 2=full annotation, 3=posterior prob default
+    mapping_column: morphology
+    root:
+      enabled: true
+      outgroups:
+        - lozanoi 
+
+  dsuite:
+    enabled: true
+    executable: bin/Dsuite/Build/Dsuite
+    mapping_column: morphology
+    outgroups:
+      - lozanoi 
+    tree: results/popstats/GCA_965276375.1_fPomMin1.1_19062026_GCA_965276375.1_fPomMin1.1/astral/astral.topology.tree
+    jknum: 20
+    no_f4_ratio: false
+    abba_clustering: false
+
+
+  twisst:
+    enabled: true
+    executable: "bin/twisst/twisst.py"
+    mapping_column: "morphology"
+    outgroup: null
+    method: "complete"
+    iterations: 100
+    abort_cutoff: 100
+    plotting:
+      enabled: true
+      script: "bin/plot_twisst_snakepop.R"
+      width: 14
+      height: 8
+      formats:
+        - pdf
+        - svg
+        - png
+      top_n: 6
+      smooth_k: 15
+
+
+  sfs:
+
+    enabled: true
+
+    # Metadata column defining the populations.
+    population_column: "morphology"
+
+    #######################################################################
+    # Populations included in the analysis
+    #######################################################################
+
+    populations:
+
+      # Populations to include.
+      #
+      # all
+      #     -> every population present in the metadata.
+      #
+      # list
+      #     -> only the specified populations.
+      include: all
+
+      # Example:
+      #
+      # include:
+      #   - morph_1
+      #   - morph_2
+      #   - minutus
+
+
+    #######################################################################
+    # Folded / unfolded SFS
+    #######################################################################
+
+    polarisation:
+
+      # folded
+      #     -> folded (minor allele frequency) SFS.
+      #        Does not require an ancestral allele.
+      #
+      # unfolded
+      #     -> derived allele frequency SFS.
+      #        Requires one or more outgroups to infer the ancestral allele.
+      mode: folded
+
+      # Only used for unfolded SFS.
+      outgroups:
+        - minutus
+        - lozanoi
+
+
+    #######################################################################
+    # Spectra to calculate
+    #######################################################################
+
+    spectra:
+
+      #####################################################################
+      # One-dimensional SFS
+      #####################################################################
+
+      # Calculates one folded/unfolded SFS for every included population.
+      one_d:
+
+        enabled: true
+
+
+      #####################################################################
+      # Two-dimensional joint SFS
+      #####################################################################
+
+      two_d:
+
+        enabled: true
+
+        # Pairwise comparisons.
+        #
+        # all
+        #     -> calculate every pairwise comparison among the included
+        #        populations.
+        #
+        # list
+        #     -> only calculate the specified comparisons.
+        comparisons: all
+
+        # Example:
+        #
+        # comparisons:
+        #   - [morph_1, morph_2]
+        #   - [morph_1, minutus]
+
+
+    #######################################################################
+    # Genomic regions
+    #######################################################################
+
+    regions:
+
+      # Calculate SFS using all SNPs.
+      genome: true
+
+      # Calculate SFS only for SNPs located inside FST outlier windows.
+      #
+      # SnakePop automatically discovers all
+      # *.outlier_windows.tsv files generated by the Manhattan module.
+      outlier_windows: true
+
+      # Calculate SFS only for SNPs located inside merged candidate regions.
+      #
+      # SnakePop automatically discovers all
+      # *.candidate_regions.tsv files generated by the Manhattan module.
+      candidate_regions: true
+
+      # User-defined regions.
+      #
+      # Supply a BED file containing genomic intervals.
+      custom_regions:
+
+        enabled: false
+
+        source: bed
+
+        file: null
+
+
+    #######################################################################
+    # Plotting
+    #######################################################################
+
+    plotting:
+
+      enabled: true
+
+      formats:
+        - pdf
+        - svg
+        - png

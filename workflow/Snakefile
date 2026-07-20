@@ -4,12 +4,38 @@
 
 configfile: "../config/config.yaml"
 
+###############################################################################
+# Core workflow
+###############################################################################
+
 include: "rules/alignment.smk"
 include: "rules/variants.smk"
-include: "rules/popstats.smk"
+
+###############################################################################
+# Population genomics / phylogenomics
+###############################################################################
+
+include: "rules/popstats/common.smk"
+include: "rules/popstats/pca.smk"
+include: "rules/popstats/popgenwindows.smk"
+include: "rules/popstats/manhattan.smk"
+include: "rules/popstats/heterozygosity.smk"
+include: "rules/popstats/winpca.smk"
+include: "rules/popstats/roh.smk"
+include: "rules/popstats/snptrees_iqtree.smk"
+include: "rules/popstats/astral.smk"
+include: "rules/popstats/dsuite.smk"
+include: "rules/popstats/twisst.smk"
+include: "rules/popstats/sfs.smk"
+
+# Add this once workflow/rules/popstats/sfs.smk exists:
+# include: "rules/popstats/sfs.smk"
+
+include: "rules/popstats/popstats_targets.smk"
 
 rule all:
     input:
         rules.alignment.input,
         rules.final_callset.input,
         rules.popstats.input
+

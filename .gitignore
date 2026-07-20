@@ -50,3 +50,5 @@ bin/__pycache__
 bin/winpca
 bin/Dsuite/
 bin/twisst
+
+workflow/rules/trash_old/

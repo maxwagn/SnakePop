@@ -54,3 +54,6 @@ dependencies:
   - r-phangorn
   - r-rcolorbrewer
   - r-cowplot
+
+  # sfs
+  - cyvcf2

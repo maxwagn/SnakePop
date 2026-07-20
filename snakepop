@@ -49,6 +49,7 @@ Population genomics:
   popgenwindows         Windowed FST, dXY, dA and pi
   manhattan             Manhattan-style genome scan plots and candidate regions
   winpca                Windowed PCA
+  sfs                   Site frequency spectra (1D/2D, genome/outlier/candidate regions)
   popstats              Run all configured population-genomic modules
 
 Phylogenomics:
@@ -78,6 +79,7 @@ Examples:
   ./snakepop popgenwindows --cores 16
   ./snakepop manhattan --cores 4
   ./snakepop winpca --cores 16
+  ./snakepop sfs --cores 4
   ./snakepop snptrees_iqtree --cores 8
   ./snakepop astral --cores 1
   ./snakepop popstats --cores 32
@@ -92,8 +94,8 @@ fi
 
 case "$1" in
     alignment|raw_calling|filtering|final_callset|variants|all|\
-pca|heterozygosity|roh|popgenwindows|manhattan|winpca|popstats|\
-snptrees_iqtree|astral|dsuitei|twisst|\
+pca|heterozygosity|roh|popgenwindows|manhattan|winpca|sfs|popstats|\
+snptrees_iqtree|astral|dsuite|twisst|\
 clean_intermediates|clean_snakemake)
         TARGET="$1"
         shift
@@ -182,3 +184,4 @@ echo
 echo
 
 "${CMD[@]}"
+

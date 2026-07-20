@@ -2,245 +2,262 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 
-get_arg <- function(flag, default=NULL) {
+get_arg <- function(flag, default = NULL) {
   i <- match(flag, args)
   if (is.na(i)) return(default)
   args[i + 1]
 }
 
-weights_file   <- get_arg("--weights")
-metadata_file  <- get_arg("--metadata")
-topologies_file <- get_arg("--topologies")
-out_prefix     <- get_arg("--out-prefix")
+weights_file <- get_arg("--weights")
+window_file <- get_arg("--metadata")
+topos_file <- get_arg("--topologies", NA)
+out_prefix <- get_arg("--out-prefix")
+formats <- strsplit(get_arg("--formats", "pdf,svg,png"), ",")[[1]]
 
-top_n          <- get_arg("--top-n", "3")
-smooth_n       <- as.integer(get_arg("--smooth", "1"))
-combine_other  <- tolower(get_arg("--combine-other", "true")) %in% c("true","1","yes")
-width          <- as.numeric(get_arg("--width", "14"))
-height         <- as.numeric(get_arg("--height", "7"))
-formats        <- strsplit(get_arg("--formats", "pdf,svg,png"), ",")[[1]]
+width <- as.numeric(get_arg("--width", "14"))
+height <- as.numeric(get_arg("--height", "8"))
+top_n <- as.integer(get_arg("--top-n", "6"))
+smooth_k <- as.integer(get_arg("--smooth-k", "15"))
 
-# Optional: source Simon Martin's original plotting functions if present
-# Put original plot_twisst.R here:
-# bin/twisst/plot_twisst.R
-plot_fun <- "bin/twisst/plot_twisst.R"
-if (file.exists(plot_fun)) {
-  source(plot_fun)
+if (is.null(weights_file) || is.null(window_file) || is.null(out_prefix)) {
+  stop("Required: --weights FILE --metadata FILE --out-prefix PREFIX")
 }
 
-# -----------------------------
-# Read SnakePop / Twisst output
-# -----------------------------
+source("bin/twisst/plot_twisst.R")
 
-weights <- read.table(
-  weights_file,
-  header = TRUE,
-  comment.char = "#",
-  stringsAsFactors = FALSE
-)
+open_device <- function(outfile, fmt, w, h) {
+  if (fmt == "pdf") pdf(outfile, width = w, height = h)
+  else if (fmt == "svg") svg(outfile, width = w, height = h)
+  else if (fmt == "png") png(outfile, width = w, height = h, units = "in", res = 300)
+  else stop(paste("Unsupported format:", fmt))
+}
 
-metadata <- read.table(
-  metadata_file,
-  header = TRUE,
-  sep = "\t",
-  stringsAsFactors = FALSE
-)
-
-topologies <- readLines(topologies_file)
-topologies <- topologies[nchar(topologies) > 0]
-
-if (nrow(weights) != nrow(metadata)) {
-  stop(
-    "weights and metadata have different number of rows: ",
-    nrow(weights), " vs ", nrow(metadata)
+save_plot <- function(name, fmt, w, h, expr) {
+  outfile <- paste0(out_prefix, ".", name, ".", fmt)
+  open_device(outfile, fmt, w, h)
+  tryCatch(
+    force(expr),
+    finally = dev.off()
   )
 }
 
-topo_cols <- colnames(weights)
+rolling_mean <- function(x, k = 15) {
+  if (k <= 1 || length(x) < k) return(x)
+  stats::filter(x, rep(1 / k, k), sides = 2)
+}
 
-# -----------------------------
-# Select topologies
-# -----------------------------
+message("Importing TWISST data...")
 
-mean_weights <- colMeans(weights, na.rm = TRUE)
-mean_weights <- sort(mean_weights, decreasing = TRUE)
-
-if (tolower(top_n) == "all") {
-  selected <- names(mean_weights)
+if (!is.na(topos_file) && file.exists(topos_file)) {
+  twisst_data <- import.twisst(
+    weights_files = weights_file,
+    window_data_files = window_file,
+    topos_file = topos_file,
+    split_by_chrom = TRUE,
+    recalculate_mid = TRUE
+  )
 } else {
-  selected <- names(mean_weights)[seq_len(min(as.integer(top_n), length(mean_weights)))]
-}
-
-plot_weights <- weights[, selected, drop = FALSE]
-
-if (combine_other && tolower(top_n) != "all") {
-  other <- setdiff(colnames(weights), selected)
-  if (length(other) > 0) {
-    plot_weights$Other <- rowSums(weights[, other, drop = FALSE], na.rm = TRUE)
-  }
-}
-
-if (smooth_n > 1) {
-  smooth_vec <- function(x, n) {
-    stats::filter(x, rep(1 / n, n), sides = 2)
-  }
-  plot_weights <- as.data.frame(lapply(plot_weights, smooth_vec, n = smooth_n))
-  plot_weights[is.na(plot_weights)] <- weights[is.na(plot_weights)]
-}
-
-# -----------------------------
-# Coordinates
-# -----------------------------
-
-metadata$scaffold <- as.character(metadata$scaffold)
-metadata$start <- as.numeric(metadata$start)
-metadata$end <- as.numeric(metadata$end)
-metadata$mid <- (metadata$start + metadata$end) / 2
-
-chroms <- unique(metadata$scaffold)
-offsets <- numeric(length(chroms))
-names(offsets) <- chroms
-
-running <- 0
-centers <- numeric(length(chroms))
-bounds <- numeric(length(chroms))
-
-for (i in seq_along(chroms)) {
-  chr <- chroms[i]
-  chr_max <- max(metadata$end[metadata$scaffold == chr], na.rm = TRUE)
-  offsets[chr] <- running
-  centers[i] <- running + chr_max / 2
-  running <- running + chr_max
-  bounds[i] <- running
-}
-
-x <- metadata$mid + offsets[metadata$scaffold]
-
-# -----------------------------
-# Colours similar to Twisst examples
-# -----------------------------
-
-cols <- c(
-  "#1f78b4", "#ff7f00", "#33a02c", "#e31a1c",
-  "#6a3d9a", "#b15928", "#a6cee3", "#fdbf6f",
-  "#b2df8a", "#fb9a99", "#cab2d6", "#ffff99"
-)
-
-while (length(cols) < ncol(plot_weights)) cols <- c(cols, cols)
-cols <- cols[seq_len(ncol(plot_weights))]
-
-# -----------------------------
-# Labels
-# -----------------------------
-
-topo_label <- function(col) {
-  if (col == "Other") return("Other")
-  idx <- as.integer(gsub("[^0-9]", "", col))
-  if (is.na(idx) || idx < 1 || idx > length(topologies)) return(col)
-  topologies[idx]
-}
-
-legend_labels <- sapply(colnames(plot_weights), function(z) {
-  if (z == "Other") return("Other")
-  sprintf("%s (%.1f%%)", z, mean(weights[[z]], na.rm = TRUE) * 100)
-})
-
-# -----------------------------
-# Plot function
-# -----------------------------
-
-make_plot <- function(outfile, device_fun) {
-  device_fun(outfile, width = width, height = height)
-
-  layout(
-    matrix(c(1, 2, 3), ncol = 1),
-    heights = c(1.1, 3.2, 2.2)
+  twisst_data <- import.twisst(
+    weights_files = weights_file,
+    window_data_files = window_file,
+    split_by_chrom = TRUE,
+    recalculate_mid = TRUE
   )
+}
 
-  par(mar = c(0.5, 4, 2, 1), xpd = NA)
+top_order <- order(twisst_data$weights_overall_mean, decreasing = TRUE)
+top_n <- min(top_n, length(top_order))
+top_idx <- top_order[seq_len(top_n)]
 
-  # Topology text panel
-  plot.new()
-  title("Twisst topology weights", adj = 0, font.main = 2)
+subset_topos <- function(obj, idx) {
+  out <- obj
+  out$weights <- lapply(obj$weights, function(x) x[, idx, drop = FALSE])
+  out$weights_raw <- lapply(obj$weights_raw, function(x) x[, idx, drop = FALSE])
+  out$weights_mean <- lapply(obj$weights_mean, function(x) x[idx])
+  out$weights_overall_mean <- obj$weights_overall_mean[idx]
+  out$topos <- obj$topos[idx]
+  out
+}
 
-  n <- ncol(plot_weights)
-  xs <- seq(0.1, 0.9, length.out = n)
+twisst_top <- subset_topos(twisst_data, top_idx)
 
-  for (i in seq_len(n)) {
-    rect(xs[i] - 0.035, 0.62, xs[i] + 0.035, 0.72, col = cols[i], border = NA)
-    text(xs[i], 0.50, legend_labels[i], cex = 0.8)
-    text(xs[i], 0.25, topo_label(colnames(plot_weights)[i]), cex = 0.55, family = "mono")
-  }
+make_genome_df <- function(obj, idx = NULL, smooth = FALSE, k = 15) {
+  rows <- list()
+  offset <- 0
 
-  # Stacked area
-  par(mar = c(0.5, 4, 0.5, 1))
-  plot(
-    range(x), c(0, 1),
-    type = "n",
-    xlab = "",
-    ylab = "Topology weight",
-    xaxt = "n",
-    las = 1
-  )
+  regions <- names(obj$weights)
 
-  y0 <- rep(0, nrow(plot_weights))
-  for (i in seq_len(ncol(plot_weights))) {
-    y1 <- y0 + plot_weights[[i]]
-    polygon(
-      c(x, rev(x)),
-      c(y0, rev(y1)),
-      col = cols[i],
-      border = NA
+  for (region in regions) {
+    w <- obj$weights[[region]]
+    wd <- obj$window_data[[region]]
+
+    if (!is.null(idx)) w <- w[, idx, drop = FALSE]
+
+    if (!("mid" %in% names(wd))) wd$mid <- (wd$start + wd$end) / 2
+
+    pos <- wd$mid
+    genome_pos <- pos + offset
+
+    if (smooth) {
+      for (j in seq_len(ncol(w))) {
+        sm <- rolling_mean(w[, j], k = k)
+        sm[is.na(sm)] <- w[is.na(sm), j]
+        w[, j] <- sm
+      }
+
+      row_sums <- rowSums(w, na.rm = TRUE)
+      row_sums[row_sums == 0] <- 1
+      w <- w / row_sums
+    }
+
+    df <- data.frame(
+      region = region,
+      start = wd$start,
+      end = wd$end,
+      mid = wd$mid,
+      genome_pos = genome_pos,
+      w,
+      check.names = FALSE
     )
-    y0 <- y1
+
+    rows[[region]] <- df
+    offset <- max(genome_pos, na.rm = TRUE) + 1
   }
 
-  abline(v = bounds[-length(bounds)], col = "white", lwd = 1)
+  do.call(rbind, rows)
+}
 
-  legend(
-    "top",
-    legend = legend_labels,
-    fill = cols,
-    horiz = TRUE,
-    bty = "n",
-    cex = 0.8,
-    inset = -0.12
-  )
+plot_genomewide <- function(obj, idx = NULL, smooth = FALSE, stacked = FALSE,
+                            k = 15, main = "") {
+  df <- make_genome_df(obj, idx = idx, smooth = smooth, k = k)
 
-  # Line plot
-  par(mar = c(5, 4, 0.5, 1))
+  topo_cols_use <- topo_cols
+  topo_names <- colnames(df)[!(colnames(df) %in% c("region", "start", "end", "mid", "genome_pos"))]
+
+  if (length(topo_names) > length(topo_cols_use)) {
+    topo_cols_use <- rainbow(length(topo_names))
+  } else {
+    topo_cols_use <- topo_cols_use[seq_along(topo_names)]
+  }
+
+  par(mar = c(4, 4, 2, 1))
   plot(
-    range(x), c(0, 1),
-    type = "n",
-    xlab = "Genomic position",
-    ylab = "Topology weight",
-    xaxt = "n",
-    las = 1
+    NA,
+    xlim = range(df$genome_pos, na.rm = TRUE),
+    ylim = c(0, 1),
+    xlab = "Genome position",
+    ylab = "Topology weighting",
+    main = main,
+    bty = "n",
+    xaxt = "n"
   )
 
-  for (i in seq_len(ncol(plot_weights))) {
-    lines(x, plot_weights[[i]], col = cols[i], lwd = 1)
+  regions <- unique(df$region)
+  centers <- tapply(df$genome_pos, df$region, mean, na.rm = TRUE)
+
+  abline(v = tapply(df$genome_pos, df$region, min, na.rm = TRUE), col = "grey85", lty = 3)
+
+  if (stacked) {
+    mat <- as.matrix(df[, topo_names, drop = FALSE])
+    upper <- t(apply(mat, 1, cumsum))
+    lower <- upper - mat
+
+    for (j in rev(seq_along(topo_names))) {
+      polygon(
+        c(df$genome_pos, rev(df$genome_pos)),
+        c(upper[, j], rev(lower[, j])),
+        col = topo_cols_use[j],
+        border = NA
+      )
+    }
+  } else {
+    for (j in seq_along(topo_names)) {
+      lines(
+        df$genome_pos,
+        df[[topo_names[j]]],
+        col = topo_cols_use[j],
+        lwd = 1.2
+      )
+    }
   }
 
-  abline(v = bounds[-length(bounds)], col = "grey85", lwd = 0.8)
-  axis(1, at = centers, labels = chroms, las = 2, cex.axis = 0.7)
-
-  dev.off()
+  axis(1, at = centers, labels = names(centers), las = 2, cex.axis = 0.45)
+  legend(
+    "topright",
+    legend = topo_names,
+    col = topo_cols_use,
+    lwd = 2,
+    bty = "n",
+    cex = 0.7
+  )
 }
 
 for (fmt in formats) {
-  fmt <- tolower(trimws(fmt))
-  outfile <- paste0(out_prefix, ".", fmt)
+  fmt <- trimws(fmt)
+  message("Writing ", fmt, " plots...")
 
-  if (fmt == "pdf") {
-    make_plot(outfile, pdf)
-  } else if (fmt == "svg") {
-    make_plot(outfile, svg)
-  } else if (fmt == "png") {
-    make_plot(outfile, function(file, width, height) {
-      png(file, width = width, height = height, units = "in", res = 300)
-    })
-  } else {
-    warning("Unknown format skipped: ", fmt)
-  }
+  save_plot("summary_barplot", fmt, 10, 6, {
+    plot.twisst.summary(twisst_data, lwd = 3, cex = 0.7)
+  })
+
+  save_plot("summary_boxplot", fmt, 10, 6, {
+    plot.twisst.summary.boxplot(twisst_data, lwd = 3, cex = 0.7, outline = FALSE)
+  })
+
+  save_plot("summary_topN_barplot", fmt, 10, 6, {
+    plot.twisst.summary(twisst_top, lwd = 3, cex = 0.7)
+  })
+
+  save_plot("summary_topN_boxplot", fmt, 10, 6, {
+    plot.twisst.summary.boxplot(twisst_top, lwd = 3, cex = 0.7, outline = FALSE)
+  })
+
+  save_plot("topologies_only", fmt, width, height, {
+    par(mfrow = c(1, length(twisst_top$topos)), mar = c(1, 1, 2, 1), xpd = NA)
+    for (i in seq_along(twisst_top$topos)) {
+      plot.phylo(
+        twisst_top$topos[[i]],
+        type = "clad",
+        edge.color = topo_cols[i],
+        edge.width = 5,
+        label.offset = 0.2,
+        cex = 0.8
+      )
+      mtext(side = 3, text = names(twisst_top$topos)[i], col = topo_cols[i])
+    }
+  })
+
+  save_plot("genomewide_raw_all_overlay", fmt, width, height, {
+    plot_genomewide(twisst_data, smooth = FALSE, stacked = FALSE, main = "TWISST raw topology weights")
+  })
+
+  save_plot("genomewide_raw_all_stacked", fmt, width, height, {
+    plot_genomewide(twisst_data, smooth = FALSE, stacked = TRUE, main = "TWISST raw topology weights, stacked")
+  })
+
+  save_plot("genomewide_smooth_all_overlay", fmt, width, height, {
+    plot_genomewide(twisst_data, smooth = TRUE, stacked = FALSE, k = smooth_k, main = "TWISST smoothed topology weights")
+  })
+
+  save_plot("genomewide_smooth_all_stacked", fmt, width, height, {
+    plot_genomewide(twisst_data, smooth = TRUE, stacked = TRUE, k = smooth_k, main = "TWISST smoothed topology weights, stacked")
+  })
+
+  save_plot("genomewide_raw_topN_overlay", fmt, width, height, {
+    plot_genomewide(twisst_data, idx = top_idx, smooth = FALSE, stacked = FALSE, main = "TWISST raw Top-N topology weights")
+  })
+
+  save_plot("genomewide_raw_topN_stacked", fmt, width, height, {
+    plot_genomewide(twisst_data, idx = top_idx, smooth = FALSE, stacked = TRUE, main = "TWISST raw Top-N topology weights, stacked")
+  })
+
+  save_plot("genomewide_smooth_topN_overlay", fmt, width, height, {
+    plot_genomewide(twisst_data, idx = top_idx, smooth = TRUE, stacked = FALSE, k = smooth_k, main = "TWISST smoothed Top-N topology weights")
+  })
+
+  save_plot("genomewide_smooth_topN_stacked", fmt, width, height, {
+    plot_genomewide(twisst_data, idx = top_idx, smooth = TRUE, stacked = TRUE, k = smooth_k, main = "TWISST smoothed Top-N topology weights, stacked")
+  })
 }
+
+message("Done.")
