@@ -1,12 +1,4 @@
-###############################################################################
-# SnakePop: population statistics
-###############################################################################
-
-import pandas as pd
-
-###############################################################################
-# Config
-###############################################################################
+from pathlib import Path
 
 REF_NAME = config["ref"]["name"]
 CALLSET_ID = config["callset"]["id"]
@@ -20,7 +12,16 @@ PCA_ROOT = f"{POP_ROOT}/pca"
 REPORT_ROOT = f"reports/popstats/{CALLSET_ID}_{REF_NAME}/pca"
 
 CHROM_LIST = config["ref"]["fasta"] + ".chromosomes.txt"
-CHROMOSOMES = [line.strip() for line in open(CHROM_LIST) if line.strip()]
+
+if Path(CHROM_LIST).exists():
+    with open(CHROM_LIST) as handle:
+        CHROMOSOMES = [
+            line.strip()
+            for line in handle
+            if line.strip()
+        ]
+else:
+    CHROMOSOMES = []
 
 SAMPLE_TABLE = config["sample_table"]
 SAMPLE_COL = config.get("sample_id_column", "id")
