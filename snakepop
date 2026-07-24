@@ -10,7 +10,7 @@ SNAKEMAKE_ARGS=()
 TARGET=""
 
 usage() {
-cat << 'EOF'
+    cat <<'EOF'
                     /^\/^\
                    _|__|  O|
           \/     /~     \_/ \
@@ -21,7 +21,7 @@ cat << 'EOF'
                            /    /
                           /    /
                         /    /
-                      /    /      SnakePop v1     
+                      /    /      SnakePop v1
                      |    |                      ~~
                      |    |                     /*/
                       \    \                   /*/
@@ -32,115 +32,55 @@ cat << 'EOF'
                            ~~~ SSSSSSSSS ~~~
 
 Usage:
-./snakepop <target> --cores N [options]
+  ./snakepop <target> --cores N [options]
 
 Core workflow:
-alignment           Map reads to the reference genome
-raw_calling         Generate raw variant calls
-filtering           Apply genotype and site filters
-final_callset       Build final VCF callsets
-variants            Run raw_calling → filtering → final_callset
-all                 Run the complete SnakePop workflow
+  alignment             Map reads to the reference genome
+  raw_calling           Generate raw variant calls
+  filtering             Apply genotype and site filters
+  final_callset         Build final VCF callsets
+  variants              Run raw_calling, filtering, and final_callset
+  all                   Run the complete workflow
 
-Population genomics:
-pca                 Genome-wide principal component analysis
-heterozygosity      Per-sample heterozygosity and inbreeding coefficients
-roh                 Runs of homozygosity
-popgenwindows       Windowed FST, dXY, dA and nucleotide diversity (pi)
-manhattan           Genome-scan plots and candidate-region detection
-winpca              Windowed principal component analysis
-sfs                 One- and two-dimensional site-frequency spectra
-(genome-wide, outlier and candidate regions)
-popstats            Run all configured population-genomic analyses
-
-Phylogenomics:
-snptrees_iqtree     Window-based maximum-likelihood trees with IQ-TREE
-astral              Species-tree inference with ASTRAL
-dsuite              Dsuite introgression analyses
-twisst              Topology weighting across genomic windows
+Population analyses:
+  pca
+  popgenwindows
+  heterozygosity
+  roh
+  winpca
+  snptrees_iqtree
+  astral
+  dsuite
+  twisst
+  sfs
 
 Cleanup:
-clean_intermediates         Remove intermediate variant-calling files
-clean_snakemake             Remove Snakemake metadata and locks
+  clean_intermediates
+  clean_snakemake
 
 Options:
---cores N Maximum local cores for Snakemake
---config FILE Config file [default: config/config.yaml]
---profile PROFILE Snakemake profile
---dry-run, -n Dry run with printed commands
---snakemake "ARGS" Extra arguments passed directly to Snakemake
---help, -h Show this help
-
-Examples:
-./snakepop alignment --cores 8 --dry-run
-./snakepop variants --cores 32 --snakemake "--rerun-incomplete --keep-going"
-./snakepop pca --cores 16
-./snakepop heterozygosity --cores 4
-./snakepop roh --cores 4
-./snakepop popgenwindows --cores 16
-./snakepop manhattan --cores 4
-./snakepop winpca --cores 16
-./snakepop sfs --cores 4
-./snakepop snptrees_iqtree --cores 8
-./snakepop astral --cores 1
-./snakepop dsuite --cores 4
-./snakepop twisst --cores 4
-./snakepop popstats --cores 32
-./snakepop alignment --cores 8 --snakemake "--unlock"
+  --cores N             Number of Snakemake cores
+  --config FILE         Configuration file
+                        Default: config/config.yaml
+  --profile PROFILE     Snakemake profile
+  -n, --dry-run         Perform a dry run
+  --snakemake ARG       Pass one additional argument to Snakemake
+  -h, --help            Show this help
 EOF
 }
 
 if [[ $# -eq 0 ]]; then
-usage
-exit 1
+    usage
+    exit 1
 fi
 
 case "$1" in
-alignment|raw_calling|filtering|final_callset|variants|all|
-pca|heterozygosity|roh|popgenwindows|manhattan|winpca|sfs|popstats|
-snptrees_iqtree|astral|dsuite|twisst|
-clean_intermediates|clean_snakemake)
-TARGET="$1"
-shift
-;;
--h|--help)
-usage
-exit 0
-;;
-*)
-echo "ERROR: Unknown target '$1'"
-echo
-usage
-exit 1
-;;
-esac
-
-while [[ $# -gt 0 ]]; do
-case "$1" in
---cores)
-CORES="${2:-}"
-shift 2
-;;
-
-    --config)
-        CONFIG="${2:-}"
-        shift 2
-        ;;
-
-    --profile)
-        PROFILE="${2:-}"
-        shift 2
-        ;;
-
-    -n|--dry-run)
-        DRYRUN=(-n -p)
+    alignment|raw_calling|filtering|final_callset|variants|all|\
+    pca|popgenwindows|heterozygosity|roh|winpca|sfs|\
+    snptrees_iqtree|astral|dsuite|twisst|\
+    clean_intermediates|clean_snakemake)
+        TARGET="$1"
         shift
-        ;;
-
-    --snakemake)
-        read -r -a EXTRA <<< "${2:-}"
-        SNAKEMAKE_ARGS+=("${EXTRA[@]}")
-        shift 2
         ;;
 
     -h|--help)
@@ -149,31 +89,102 @@ shift 2
         ;;
 
     *)
-        echo "ERROR: Unknown option '$1'"
-        echo
-        usage
+        echo "ERROR: Unknown target '$1'" >&2
+        echo >&2
+        usage >&2
         exit 1
         ;;
 esac
 
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --cores)
+            if [[ $# -lt 2 || -z "${2:-}" ]]; then
+                echo "ERROR: --cores requires a value" >&2
+                exit 1
+            fi
+            CORES="$2"
+            shift 2
+            ;;
+
+        --config)
+            if [[ $# -lt 2 || -z "${2:-}" ]]; then
+                echo "ERROR: --config requires a file path" >&2
+                exit 1
+            fi
+            CONFIG="$2"
+            shift 2
+            ;;
+
+        --profile)
+            if [[ $# -lt 2 || -z "${2:-}" ]]; then
+                echo "ERROR: --profile requires a value" >&2
+                exit 1
+            fi
+            PROFILE="$2"
+            shift 2
+            ;;
+
+        -n|--dry-run)
+            DRYRUN=(-n -p)
+            shift
+            ;;
+
+        --snakemake)
+            if [[ $# -lt 2 || -z "${2:-}" ]]; then
+                echo "ERROR: --snakemake requires an argument" >&2
+                exit 1
+            fi
+            SNAKEMAKE_ARGS+=("$2")
+            shift 2
+            ;;
+
+        --)
+            shift
+            SNAKEMAKE_ARGS+=("$@")
+            break
+            ;;
+
+        *)
+            echo "ERROR: Unknown option '$1'" >&2
+            echo >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
 done
 
 if [[ -z "$CORES" ]]; then
-echo "ERROR: --cores is required"
-echo
-usage
-exit 1
+    echo "ERROR: --cores is required" >&2
+    echo >&2
+    usage >&2
+    exit 1
+fi
+
+if [[ ! "$CORES" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --cores must be a positive integer" >&2
+    exit 1
+fi
+
+if [[ ! -f "$CONFIG" ]]; then
+    echo "ERROR: Config file not found: $CONFIG" >&2
+    exit 1
+fi
+
+if [[ ! -f workflow/Snakefile ]]; then
+    echo "ERROR: workflow/Snakefile not found" >&2
+    exit 1
 fi
 
 CMD=(
-snakemake
---snakefile workflow/Snakefile
---configfile "$CONFIG"
---cores "$CORES"
+    snakemake
+    --snakefile workflow/Snakefile
+    --configfile "$CONFIG"
+    --cores "$CORES"
 )
 
 if [[ -n "$PROFILE" ]]; then
-CMD+=(--profile "$PROFILE")
+    CMD+=(--profile "$PROFILE")
 fi
 
 CMD+=("${DRYRUN[@]}")
