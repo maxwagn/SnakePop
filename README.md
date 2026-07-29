@@ -1,6 +1,6 @@
 # SnakePop 🐍
 
-> **Status:** 🚧 Work in progress (WIP)
+> **Status:** 🚧 Work in progress... Use at your own risk!!
 
 > A modular **Snakemake workflow for population genomics and phylogenomics** from whole-genome resequencing data.
 
