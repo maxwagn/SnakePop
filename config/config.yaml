@@ -32,7 +32,7 @@ ref:
 # Samples and callset
 ###############################################################################
 
-sample_table: config/Metadata_parastromatus_240726.tsv
+sample_table: config/Metadata_parastromatus_no_GJ01.tsv 
 
 # Column in the metadata table containing sample IDs.
 sample_id_column: sample_id
