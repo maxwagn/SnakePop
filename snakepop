@@ -45,6 +45,7 @@ Core workflow:
 Population analyses:
   pca
   popgenwindows
+  watterson_theta
   heterozygosity
   roh
   winpca
@@ -53,6 +54,7 @@ Population analyses:
   dsuite
   twisst
   sfs
+  popstats
 
 Cleanup:
   clean_intermediates
@@ -76,7 +78,7 @@ fi
 
 case "$1" in
     alignment|raw_calling|filtering|final_callset|variants|all|\
-    pca|popgenwindows|heterozygosity|roh|winpca|sfs|\
+    pca|popgenwindows|watterson_theta|heterozygosity|roh|winpca|sfs|\
     snptrees_iqtree|astral|dsuite|twisst|\
     clean_intermediates|clean_snakemake)
         TARGET="$1"

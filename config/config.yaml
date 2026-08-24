@@ -139,6 +139,11 @@ resources:
     threads: 1
     mem_mb: 8000
     walltime: 4
+  
+  watterson_theta:
+    threads: 1
+    mem_mb: 8000
+    walltime: 6
 
   winpca:
     threads: 4
@@ -598,3 +603,44 @@ popstats:
         - pdf
         - svg
         - png
+
+  ###########################################################################
+  # Watterson's theta
+  ###########################################################################
+  watterson_theta:
+    enabled: true
+
+    # Metadata column defining populations.
+    # If omitted, popstats.population_column is used.
+    population_column: morphology
+
+    populations:
+      # all -> calculate theta_W for every population in the metadata.
+      include: all
+
+      # Alternatively:
+      # include:
+      #   - morph_1
+      #   - morph_2
+      #   - minutus
+
+    # Genomic windows in bp.
+    window_size: 60000
+    window_step: 30000
+
+    # Expected organism ploidy.
+    ploidy: 2
+
+    # A site is considered callable for a population when at least this
+    # fraction of its chromosomes have genotype calls.
+    min_called_fraction: 0.8
+
+    # Windows with fewer callable sites get theta_w = NA.
+    min_callable_sites: 1000
+
+    # Exclude indels and other non-SNP variant positions.
+    # Invariant nucleotide positions remain in the denominator.
+    snps_only: true
+
+    # Analysis script.
+    script: bin/watterson_theta_snakepop.py

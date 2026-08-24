@@ -1,9 +1,13 @@
 ############################################################
+# SnakePop population-genomic umbrella target
+############################################################
 
 rule popstats:
+
     input:
         rules.pca.input,
         rules.popgenwindows.input,
+        rules.watterson_theta.input,
         rules.winpca.input,
         rules.manhattan.input,
         rules.heterozygosity.input,
