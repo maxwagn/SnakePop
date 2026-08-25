@@ -8,22 +8,18 @@
 
 ref:
   # Short name used in output paths.
-  name: GCA_965276375.1_fPomMin1.1
+  name: GCA_054643105.1_CIBA_Cheb_1.1
 
   # Original downloaded reference FASTA.
-  original_fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.fna.gz
-    #original_fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/parastromatus/reference/ncbi_dataset/data/GCA_054643105.1/GCA_054643105.1_CIBA_Cheb_1.1_genomic.fna
+  original_fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/parastromatus/reference/ncbi_dataset/data/GCA_054643105.1/GCA_054643105.1_CIBA_Cheb_1.1_genomic.fna
 
   # NCBI assembly report used for chromosome/scaffold renaming.
-  assembly_report: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic.sequence_report.tsv
-
-    #assembly_report: /scratch/antwerpen/grp/asvardal/projects/clingfishes/parastromatus/reference/ncbi_dataset/data/GCA_054643105.1/sequence_report.tsv
+  assembly_report: /scratch/antwerpen/grp/asvardal/projects/clingfishes/parastromatus/reference/ncbi_dataset/data/GCA_054643105.1/sequence_report.tsv
 
   # Final reference FASTA used by SnakePop.
-  fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/norwegian_gobies/reference/Pminutus/GCA_965276375.1_fPomMin1.1_genomic_chromnames.fna
-    #fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/parastromatus/reference/ncbi_dataset/data/GCA_054643105.1/GCA_054643105.1_CIBA_Cheb_1.1_genomic_chromnames.fna
+  fasta: /scratch/antwerpen/grp/asvardal/projects/clingfishes/parastromatus/reference/ncbi_dataset/data/GCA_054643105.1/GCA_054643105.1_CIBA_Cheb_1.1_genomic_chromnames.fna
 
-  species: P minutus
+  species: Caranx heberi
 
   # Prefix used when renaming chromosomes.
   chrom_prefix: chr
@@ -36,7 +32,7 @@ ref:
 # Samples and callset
 ###############################################################################
 
-sample_table: config/Metadata_Norwegian_gobies_180526.tsv
+sample_table: config/Metadata_parastromatus_no_GJ01.tsv 
 
 # Column in the metadata table containing sample IDs.
 sample_id_column: sample_id
@@ -46,7 +42,7 @@ read_files_column: read_files
 
 callset:
   # Identifier used in output directories.
-  id: GCA_965276375.1_fPomMin1.1_19062026 
+  id: GCA_054643105.1_CIBA_Cheb_1.1 
 
 
 ###############################################################################
@@ -256,7 +252,7 @@ site_filter_sets:
 popstats:
 
   # Default metadata column used to define populations/groups.
-  population_column: morphology
+  population_column: group
 
 
   ###########################################################################
@@ -270,7 +266,7 @@ popstats:
     geno: 0.2
 
     # Metadata column used for colouring samples.
-    color_by: morphology
+    color_by: group
 
     label_samples: true
 
@@ -360,7 +356,7 @@ popstats:
 
   heterozygosity:
     enabled: true
-    color_by: morphology
+    color_by: group
 
 
   ###########################################################################
@@ -369,7 +365,7 @@ popstats:
 
   roh:
     enabled: true
-    color_by: morphology
+    color_by: group
 
     min_kb: 500
     min_snp: 100
@@ -402,7 +398,7 @@ popstats:
     increment: 10000
     min_maf: 0.01
 
-    color_by: morphology
+    color_by: group
 
     plot_var: 1
     plot_interval: 5
@@ -456,7 +452,7 @@ popstats:
     # 3 = posterior probability/default
     branch_annotate: 2
 
-    mapping_column: morphology
+    mapping_column: group
 
     root:
       enabled: true
@@ -471,11 +467,11 @@ popstats:
     enabled: false
 
     executable: bin/Dsuite/Build/Dsuite
-    mapping_column: morphology
+    mapping_column: group
 
     outgroups: []
 
-    tree: results/popstats/GCA_965276375.1_fPomMin1.1_19062026_GCA_965276375.1_fPomMin1.1/astral/astral.tree
+    tree: results/popstats/GCA_054643105.1_CIBA_Cheb_1.1_24072026_GCA_054643105.1_CIBA_Cheb_1.1/astral/astral.topology.tree
 
     jknum: 20
     no_f4_ratio: false
@@ -490,7 +486,7 @@ popstats:
     enabled: false
 
     executable: bin/twisst/twisst.py
-    mapping_column: morphology
+    mapping_column: group
 
     # Optional outgroup used by TWISST.
     # null means no explicit outgroup.
@@ -531,7 +527,7 @@ popstats:
     enabled: false
 
     # Metadata column defining populations.
-    population_column: morphology
+    population_column: group
 
     populations:
       # Populations to include.
@@ -581,8 +577,8 @@ popstats:
 
         # Example:
         comparisons:
-          #- [GJ, PEKM]
-           - [morph_1, minutus]
+           - [GJ, PEKM]
+        #   - [morph_1, minutus]
 
     regions:
       # SFS across all SNPs.

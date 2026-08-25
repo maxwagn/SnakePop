@@ -3,7 +3,6 @@
 ############################################################
 
 rule popstats:
-
     input:
         rules.pca.input,
         rules.popgenwindows.input,

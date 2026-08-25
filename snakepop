@@ -137,7 +137,8 @@ while [[ $# -gt 0 ]]; do
                 echo "ERROR: --snakemake requires an argument" >&2
                 exit 1
             fi
-            SNAKEMAKE_ARGS+=("$2")
+            read -r -a EXTRA <<< "$2"
+            SNAKEMAKE_ARGS+=("${EXTRA[@]}")
             shift 2
             ;;
 

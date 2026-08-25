@@ -125,7 +125,6 @@ WAT_POP_ARG = (
 ###############################################################################
 
 def watterson_vcf(wc):
-
     return (
         f"{VC_ROOT}/vcf/"
         f"all_sites."
@@ -134,17 +133,12 @@ def watterson_vcf(wc):
         f"{wc.chrom}.vcf.gz"
     )
 
-
 ###############################################################################
 # Targets
 ###############################################################################
 
 WAT_CHROM_TARGETS = (
-    expand(
-        f"{WAT_ROOT}/per_chrom/"
-        "{{chrom}}.tsv",
-        chrom=CHROMOSOMES,
-    )
+    expand(f"{WAT_ROOT}/per_chrom/{{chrom}}.tsv",chrom=CHROMOSOMES)
     if WAT_ENABLED
     else []
 )
@@ -159,63 +153,33 @@ WAT_TARGETS = (
 )
 
 
-###############################################################################
-# Per-chromosome calculation
-###############################################################################
-
 rule watterson_theta_chrom:
-
     input:
         vcf=watterson_vcf,
-
-        tbi=lambda wc:
-            watterson_vcf(wc)
-            + ".tbi",
-
+        tbi=lambda wc: watterson_vcf(wc) + ".tbi",
         metadata=SAMPLE_TABLE
-
     output:
-        table=(
-            f"{WAT_ROOT}/per_chrom/"
-            "{{chrom}}.tsv"
-        )
-
+        table=f"{WAT_ROOT}/per_chrom/{{chrom}}.tsv"
     threads:
-        WAT_RES.get(
-            "threads",
-            1,
-        )
+        WAT_RES.get("threads",1)
 
     resources:
         mem_mb=WAT_RES.get(
             "mem_mb",
-            8000,
-        ),
-
+            8000),
         walltime=WAT_RES.get(
             "walltime",
-            6,
-        )
-
+            6)
     params:
         script=WAT_SCRIPT,
-
         sample_col=SAMPLE_COL,
-
         population_col=WAT_POP_COL,
-
         populations=WAT_POP_ARG,
-
         window_size=WAT_WINDOW_SIZE,
-
         window_step=WAT_WINDOW_STEP,
-
         ploidy=WAT_PLOIDY,
-
         min_called=WAT_MIN_CALLED,
-
         min_callable=WAT_MIN_CALLABLE,
-
         snps_only=(
             "--snps-only"
             if WAT_SNPS_ONLY
@@ -240,22 +204,15 @@ rule watterson_theta_chrom:
           --output {output.table}
         """
 
-
 ###############################################################################
 # Merge chromosomes
 ###############################################################################
 
 rule merge_watterson_theta:
-
     input:
         WAT_CHROM_TARGETS
-
     output:
-        table=(
-            f"{WAT_ROOT}/"
-            "watterson_theta.tsv"
-        )
-
+        table=(f"{WAT_ROOT}/watterson_theta.tsv")
     run:
 
         import os
@@ -298,6 +255,5 @@ rule merge_watterson_theta:
 ###############################################################################
 
 rule watterson_theta:
-
     input:
         WAT_TARGETS
