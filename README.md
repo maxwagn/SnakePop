@@ -22,7 +22,6 @@
                        \    \______________   /
                         \                   _/
                          \_______________--'
-
                            ~~~ SSSSSSSSS ~~~
 ```
 
@@ -65,6 +64,7 @@ Final VCF
   ├── Heterozygosity
   ├── ROH
   ├── PopGenWindows
+  ├── Watterson's theta (θW)
   ├── Manhattan plots
   ├── WinPCA
   ├── Site-frequency spectra
@@ -97,6 +97,11 @@ Final VCF
   - dXY
   - dA
   - π
+- Watterson's theta (θW)
+  - Window-based estimation
+  - Population-specific estimates
+  - Missing-data-aware chromosome counts
+  - Callable-site normalization
 - Manhattan plots
 - Candidate-region detection
 - Windowed PCA
@@ -127,9 +132,11 @@ Final VCF
 
 ```bash
 git clone git@github.com:maxwagn/SnakePop.git
+
 cd SnakePop
 
 mamba env create -f snakepop_environment.yml
+
 conda activate snakepop
 
 chmod +x snakepop
@@ -176,6 +183,7 @@ The configuration file specifies:
 - `heterozygosity`
 - `roh`
 - `popgenwindows`
+- `watterson_theta`
 - `manhattan`
 - `winpca`
 - `sfs`
@@ -199,20 +207,119 @@ The configuration file specifies:
 
 ```bash
 ./snakepop alignment --cores 16
+
 ./snakepop variants --cores 32
+
 ./snakepop pca --cores 16
+
 ./snakepop heterozygosity --cores 4
+
 ./snakepop roh --cores 4
+
 ./snakepop popgenwindows --cores 16
+
+./snakepop watterson_theta --cores 8
+
 ./snakepop manhattan --cores 8
+
 ./snakepop winpca --cores 16
+
 ./snakepop sfs --cores 4
+
 ./snakepop snptrees_iqtree --cores 8
+
 ./snakepop astral --cores 1
+
 ./snakepop dsuite --cores 4
+
 ./snakepop twisst --cores 4
+
 ./snakepop popstats --cores 32
 ```
+
+---
+
+# Watterson's theta
+
+SnakePop calculates windowed **Watterson's theta (θW)** directly from the filtered all-sites VCFs.
+
+Watterson's theta is an estimator of the population mutation parameter based on the number of segregating sites:
+
+\[
+\theta_W = \frac{S}{a_n}
+\]
+
+where:
+
+- \(S\) is the number of segregating sites
+- \(n\) is the number of sampled chromosomes
+- \(a_n\) is the harmonic sum
+
+\[
+a_n = \sum_{i=1}^{n-1}\frac{1}{i}
+\]
+
+For genomic windows, SnakePop reports θW per callable nucleotide site.
+
+The implementation accounts for variable missing data by using the number of called chromosomes at each site. Sites below the configured minimum called fraction are excluded.
+
+Example configuration:
+
+```yaml
+popstats:
+
+  watterson_theta:
+    enabled: true
+
+    population_column: morphology
+
+    populations:
+      include: all
+
+    window_size: 60000
+    window_step: 30000
+
+    ploidy: 2
+
+    min_called_fraction: 0.8
+    min_callable_sites: 1000
+
+    snps_only: true
+
+    script: bin/watterson_theta_snakepop.py
+```
+
+Run the analysis with:
+
+```bash
+./snakepop watterson_theta --cores 8
+```
+
+The final merged output is written to:
+
+```text
+results/popstats/<CALLSET>_<REFERENCE>/watterson_theta/watterson_theta.tsv
+```
+
+Chromosome-specific results are written to:
+
+```text
+results/popstats/<CALLSET>_<REFERENCE>/watterson_theta/per_chrom/
+```
+
+The output includes:
+
+- chromosome
+- window start and end
+- population
+- number of samples
+- maximum number of chromosomes
+- minimum required called chromosomes
+- number of callable sites
+- number of segregating sites
+- mean number of called chromosomes
+- harmonic denominator
+- Watterson's theta (θW)
 
 ---
 
@@ -224,4 +331,3 @@ The configuration file specifies:
 
 Evolutionary Genomics Group  
 University of Antwerp
-
